@@ -1,0 +1,10 @@
+/**
+ * Scribble protocol example: Ring topology
+ */
+global protocol Ring(role Worker[1..N]) {
+  rec LOOP {
+    Data(int) from Worker[i:1..N-1] to Worker[i+1];
+    Data(int) from Worker[N] to Worker[1];
+    continue LOOP;
+  }
+}
