@@ -6,5 +6,5 @@ libscribble
 This library includes the role-parametrised "Pabble" extension of Scribble language.
 
 Dependencies:
- * nickng/libsessiontype
+ * sessionc/libsesstype
  * A recent version of lex/yacc
