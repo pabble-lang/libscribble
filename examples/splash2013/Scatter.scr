@@ -1,0 +1,5 @@
+package splash2013
+
+global protocol Scatter(role Worker[0..N]) {
+  (int) from Worker[0] to All;
+}

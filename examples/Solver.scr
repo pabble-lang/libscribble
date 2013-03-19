@@ -1,0 +1,19 @@
+/**
+ * Pabble protocol example: Wraparound mesh Solver
+ */
+package example
+
+global protocol Solver(role Worker[1..N][1..N]) {
+  rec CONVERGE {
+    Ring() from Worker[i:1..N][j:1..N-1] to Worker[i][j+1];
+    Ring() from Worker[i:1..N-1][j:1..N] to Worker[i+1][j];
+
+    foreach (i:1..N) {
+      foreach (j:1..N) {
+        // Send from diagonal to each of the vertical members 
+        Vertical() from Worker[i][i] to Worker[i][j];
+      }
+    }
+    continue CONVERGE;
+  }
+}

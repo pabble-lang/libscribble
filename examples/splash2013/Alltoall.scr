@@ -1,0 +1,9 @@
+package splash2013
+
+global protocol Alltoall(role Worker[0..N]) {
+  rec LOOP {
+    Link(int) from Worker[1] to Worker[N];
+    Message(int) from All to All;
+    continue LOOP;
+  }
+}

@@ -1,0 +1,6 @@
+package splash2013
+
+global protocol MapReduce(role Master, role Worker[1..N], group Workers={Worker[1..N]}) {
+  Data(int) from Master to Workers;
+  Data(int) from Workers to Master;
+}

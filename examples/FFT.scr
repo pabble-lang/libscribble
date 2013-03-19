@@ -1,0 +1,11 @@
+package example
+
+const N = 3
+
+global protocol FFT(role Worker[0..7]) {
+  foreach (r:0..N-1) {
+    foreach (i:0..2<<N-1) {
+      Butterfly(int) from Worker[i] to Worker[i- (i<<r)%2 * 1<<(r+1) + 1<<r];
+    }
+  }
+}

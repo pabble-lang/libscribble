@@ -1,3 +1,10 @@
+libscribble (1.1.0~scribble0.2+pabble) unstable; urgency=low
+
+  * Update parser for Scribble specification 0.2
+  * Pabble extension with projection support
+
+ -- Nicholas Ng <nickng@doc.ic.ac.uk>  Tue, 19 Mar 2013 14:13:00 +0000
+
 libscribble (1.0.0) unstable; urgency=low
 
   * Initial Release.

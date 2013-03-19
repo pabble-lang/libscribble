@@ -1,0 +1,9 @@
+package x
+
+global protocol X(role A, role B, role C) {
+  foreach (i:1..10) {
+    foreach (j:2..3) {
+      X(int) from A to C;
+    }
+  }
+}

@@ -16,7 +16,7 @@
 #include "check.h"
 
 
-static int scribble_check_defined_roles_r(st_node *node, st_role_t **decl_roles, int ndecl_role)
+static int scribble_check_defined_roles_r(st_node *node, st_role **decl_roles, int ndecl_role)
 {
   int i, j;
   int found = 0;
@@ -81,11 +81,12 @@ static int scribble_check_defined_roles_r(st_node *node, st_role_t **decl_roles,
     case ST_NODE_CHOICE:
       found = 0;
       for (j=0; j<ndecl_role; ++j) {
-        if (strcmp(decl_roles[j]->name, node->choice->at) == 0)
+        if (strcmp(decl_roles[j]->name, node->choice->at->name) == 0)
+          // Check range too
           found = 1;
       }
       if (!found) {
-        fprintf(stderr, "%s: Choice role (%s) not declared\n", __FUNCTION__, node->choice->at);
+        fprintf(stderr, "%s: Choice role (%s) not declared\n", __FUNCTION__, node->choice->at->name);
         node->marked = 1;
         error = 1;
       }

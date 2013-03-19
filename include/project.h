@@ -8,17 +8,21 @@
  */
 
 #include "st_node.h"
+#include "st_expr.h"
 
 #ifdef __cplusplus
 extern "C" {
 #endif
 
-st_node *scribble_project_root(st_node *node, char *projectrole);
-st_node *scribble_project_choice(st_node *node, char *projectrole);
-st_node *scribble_project_parallel(st_node *node, char *projectrole);
-st_node *scribble_project_recur(st_node *node, char *projectrole);
-st_node *scribble_project_continue(st_node *node, char *projectrole);
-st_node *scribble_project_node(st_node *node, char *projectrole);
+st_node *scribble_project_root(st_tree *tree, st_node *node, char *projectrole, st_expr_list *env);
+st_node *scribble_project_message(st_tree *tree, st_node *node, char *projectrole, st_expr_list *env);
+st_node *scribble_project_choice(st_tree *tree, st_node *node, char *projectrole, st_expr_list *env);
+st_node *scribble_project_parallel(st_tree *tree, st_node *node, char *projectrole, st_expr_list *env);
+st_node *scribble_project_recur(st_tree *tree, st_node *node, char *projectrole, st_expr_list *env);
+st_node *scribble_project_continue(st_tree *tree, st_node *node, char *projectrole, st_expr_list *env);
+st_node *scribble_project_foreach(st_tree *tree, st_node *node, char *projectrole, st_expr_list *env);
+st_node *scribble_project_allreduce(st_tree *tree, st_node *node, char *projectrole, st_expr_list *env);
+st_node *scribble_project_node(st_tree *tree, st_node *node, char *projectrole, st_expr_list *env);
 
 /**
  * \brief Project a global st_tree to endpoint st_tree.

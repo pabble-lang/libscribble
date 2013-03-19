@@ -1,0 +1,6 @@
+package splash2013
+
+global protocol Distribute(role Master, role Worker[0..2], group Workers={Worker[0..2]}) {
+  Data(int) from Master to Workers;
+  Data(int) from Worker[1] to Master;
+}

@@ -1,0 +1,13 @@
+
+//
+package normal
+global protocol X(role A, role B, role C[2..3]) {
+  rec LOOP {
+    Data() from A to B;
+    choice at A {
+      Data(int) from A to B;
+    } or {
+      continue LOOP;
+    }
+  }
+}

@@ -1,0 +1,8 @@
+package example
+
+from native import int32 as int;
+
+local protocol P at Worker[0..9](role Worker[0..9], group Workers={Worker[0..9]}) {
+  if Worker[i:0..4] Data(int) to Worker[i+1];
+  if Worker[i:5..9] Data(int) from Worker[i-1];
+}

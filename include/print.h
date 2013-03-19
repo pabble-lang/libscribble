@@ -24,7 +24,8 @@ extern "C" {
  */
 int scribble_colour_mode(int colour_mode);
 
-void scribble_fprint_expr(FILE *stream, st_expr_t *expr);
+void scribble_fprint_role(FILE *stream, st_role *role);
+void scribble_fprint_expr(FILE *stream, st_expr *expr);
 
 void scribble_fprint_root(FILE *stream, st_node *node, int indent);
 void scribble_fprint_message(FILE *stream, st_node *node, int indent);
@@ -35,6 +36,7 @@ void scribble_fprint_parallel(FILE *stream, st_node *node, int indent);
 void scribble_fprint_recur(FILE *stream, st_node *node, int indent);
 void scribble_fprint_continue(FILE *stream, st_node *node, int indent);
 void scribble_fprint_for(FILE *stream, st_node *node, int indent);
+void scribble_fprint_allreduce(FILE *stream, st_node *node, int indent);
 void scribble_fprint_node(FILE *stream, st_node *node, int indent);
 
 /**

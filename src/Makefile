@@ -7,14 +7,18 @@ include $(ROOT)/Common.mk
 
 all: sharedlib objs
 
-objs: $(BUILD_DIR)/parser.o $(BUILD_DIR)/lexer.o $(BUILD_DIR)/check.o $(BUILD_DIR)/print.o $(BUILD_DIR)/project.o
+objs: $(BUILD_DIR)/parser.o $(BUILD_DIR)/lexer.o $(BUILD_DIR)/check.o $(BUILD_DIR)/print.o $(BUILD_DIR)/project.o $(BUILD_DIR)/mpi_print.o
 
 sharedlib: $(BUILD_DIR)/scribble_parser.so $(BUILD_DIR)/scribble_lexer.so $(BUILD_DIR)/scribble_check.so $(BUILD_DIR)/scribble_print.so $(BUILD_DIR)/scribble_project.so
 
-tool: objs scribble-tool.c
+tool: objs parser-tool.c scribble-tool.c
+	$(CC) $(CFLAGS) parser-tool.c \
+	  $(BUILD_DIR)/parser.o $(BUILD_DIR)/lexer.o \
+	  -o $(BIN_DIR)/parser-tool $(LDFLAGS)
 	$(CC) $(CFLAGS) scribble-tool.c \
 	  $(BUILD_DIR)/parser.o $(BUILD_DIR)/lexer.o \
 	  $(BUILD_DIR)/check.o $(BUILD_DIR)/print.o $(BUILD_DIR)/project.o \
+	  $(BUILD_DIR)/mpi_print.o \
 	  -o $(BIN_DIR)/scribble-tool $(LDFLAGS)
 
 parser.h: parser.y

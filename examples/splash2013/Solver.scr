@@ -1,0 +1,14 @@
+package splash2013
+
+const N = 10
+global protocol Solver(role Worker[1..N][1..N], group MainColumn={ Worker[1..N][1..1] }) {
+  rec CONVERGE {
+    Ring(double) from Worker[i:1..N][j:1..N-1] to Worker[i][j+1];
+    Ring(double) from Worker[i:1..N][N] to Worker[i][1];
+
+    // Vertical propagation
+    Vert(double) from MainColumn to MainColumn;
+    continue CONVERGE;
+  }
+}
+

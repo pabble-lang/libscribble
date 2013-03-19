@@ -1,0 +1,18 @@
+package org.projectfate.pabble
+import int;
+const N = 9;
+const M = 4;
+global protocol Example (role Worker[0..N], group TopHalf={Worker[0..M]}) {
+  Data() from Worker[i:0..N] to Worker[i];
+  Data(x:int) from Worker[i:0..N] to Worker[i];
+  /*  fasfasf s*/
+  Data(int) from Worker[i:0..N] to Worker[i];
+  foreach (i:1..M) {
+    Half(int) from Worker[i] to Worker[i];
+  }
+  choice at Worker[0] {
+    Tophalf() from Worker[0] to Worker[2];
+  } or {
+    Bottomhalf() from Worker[0] to Worker[2];
+  }
+}

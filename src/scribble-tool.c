@@ -11,6 +11,7 @@
 #include "check.h"
 #include "print.h"
 #include "project.h"
+#include "mpi_print.h"
 
 extern int yyparse(st_tree *tree);
 extern FILE *yyin;
@@ -27,12 +28,14 @@ int main(int argc, char *argv[])
   char *output_file   = NULL;
   char *project_role  = NULL;
   char *scribble_file = NULL;
+  FILE *mpi_handle    = NULL;
 
   while (1) {
     static struct option long_options[] = {
       {"project", required_argument, 0, 'p'},
       {"output",  required_argument, 0, 'o'},
       {"colour",  no_argument,       0,  0 },
+      {"mpi",     required_argument, 0, 'm'},
       {"parse",   no_argument,       0, 's'},
       {"check",   no_argument,       0, 'c'},
       {"version", no_argument,       0, 'v'},
@@ -50,6 +53,13 @@ int main(int argc, char *argv[])
       case 0:
         if (0 == strcmp(long_options[option_idx].name, "colour")) {
           scribble_colour_mode(1);
+        }
+        break;
+      case 'm':
+        if (strcmp(optarg, "--") == 0) {
+          mpi_handle = stdout;
+        } else {
+          mpi_handle = fopen(optarg, "a");
         }
         break;
       case 'p':
@@ -82,17 +92,17 @@ int main(int argc, char *argv[])
   argv[optind-1] = argv[0];
   argv += optind-1;
 
-  if (argc < 2) {
-    show_usage |= 1;
-  }
-
   if (show_usage) {
     fprintf(stderr, "Usage: %s [--parse] [--project role] [--check] [-v] [-h] Scribble.spr\n", argv[0]);
     return EXIT_SUCCESS;
   }
 
+  if (argc < 2) {
+    show_usage |= 1;
+  }
+
   if (show_version) {
-    fprintf(stderr, "scribble-tool 1.0.0\n");
+    fprintf(stderr, "scribble-tool 1.1.0~scribble0.2+pabble\n");
     return EXIT_SUCCESS;
   }
 
@@ -126,6 +136,27 @@ int main(int argc, char *argv[])
     st_node_reset_markedflag(tree->root);
     assert(0 /* Well-formedness checks unimplemented */);
   }
+
+  if (project_role != NULL) {
+    if (verbosity_level > 0) fprintf(stderr, "Projection for %s\n", project_role);
+    st_tree *local_tree = scribble_project(tree, project_role);
+    if (verbosity_level > 1) st_tree_print(local_tree);
+    if (local_tree->root != 0) {
+      st_node_normalise(local_tree->root);
+      if (verbosity_level > 2) st_tree_print(local_tree);
+      scribble_print(local_tree);
+      if (mpi_handle != NULL) {
+        if (verbosity_level > 0) fprintf(stderr, "Writing MPI\n");
+        mpi_print(mpi_handle, local_tree);
+        if (mpi_handle != stdout) {
+          fclose(mpi_handle);
+        }
+      }
+    } else {
+      fprintf(stderr, "ERROR: Cannot project for %s.\n", project_role);
+    }
+  }
+
 
   st_tree_free(tree);
 
