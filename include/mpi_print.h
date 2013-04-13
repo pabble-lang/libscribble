@@ -21,19 +21,19 @@ void mpi_fprint_expr(FILE *stream, st_expr *expr);
 void mpi_fprint_rank(FILE *stream, st_expr *param, const char *replace, const char *with);
 void mpi_fprint_role(FILE *stream, st_role *role);
 
-void mpi_fprint_node(FILE *stream, st_tree *tree, st_node *node, int indent);
-void mpi_fprint_root(FILE *stream, st_tree *tree, st_node *node, int indent);
-void mpi_fprint_send(FILE *stream, st_tree *tree, st_node *node, int indent);
-void mpi_fprint_recv(FILE *stream, st_tree *tree, st_node *node, int indent);
-void mpi_fprint_choice(FILE *stream, st_tree *tree, st_node *node, int indent);
-void mpi_fprint_recur(FILE *stream, st_tree *tree, st_node *node, int indent);
-void mpi_fprint_continue(FILE *stream, st_tree *tree, st_node *node, int indent);
-void mpi_fprint_parallel(FILE *stream, st_tree *tree, st_node *node, int indent);
-void mpi_fprint_for(FILE *stream, st_tree *tree, st_node *node, int indent);
-void mpi_fprint_allreduce(FILE *stream, st_tree *tree, st_node *node, int indent);
-void mpi_fprint_allgather(FILE *stream, st_tree *tree, st_node *node, int indent);
-void mpi_fprint_scatter(FILE *stream, st_tree *tree, st_node *node, int indent);
-void mpi_fprint_gather(FILE *stream, st_tree *tree, st_node *node, int indent);
+void mpi_fprint_node(FILE *pre_stream, FILE *stream, FILE *post_stream, st_tree *tree, st_node *node, int indent);
+void mpi_fprint_root(FILE *pre_stream, FILE *stream, FILE *post_stream, st_tree *tree, st_node *node, int indent);
+void mpi_fprint_send(FILE *pre_stream, FILE *stream, FILE *post_stream, st_tree *tree, st_node *node, int indent);
+void mpi_fprint_recv(FILE *pre_stream, FILE *stream, FILE *post_stream, st_tree *tree, st_node *node, int indent);
+void mpi_fprint_choice(FILE *pre_stream, FILE *stream, FILE *post_stream, st_tree *tree, st_node *node, int indent);
+void mpi_fprint_recur(FILE *pre_stream, FILE *stream, FILE *post_stream, st_tree *tree, st_node *node, int indent);
+void mpi_fprint_continue(FILE *pre_stream, FILE *stream, FILE *post_stream, st_tree *tree, st_node *node, int indent);
+void mpi_fprint_parallel(FILE *pre_stream, FILE *stream, FILE *post_stream, st_tree *tree, st_node *node, int indent);
+void mpi_fprint_for(FILE *pre_stream, FILE *stream, FILE *post_stream, st_tree *tree, st_node *node, int indent);
+void mpi_fprint_allreduce(FILE *pre_stream, FILE *stream, FILE *post_stream, st_tree *tree, st_node *node, int indent);
+void mpi_fprint_allgather(FILE *pre_stream, FILE *stream, FILE *post_stream, st_tree *tree, st_node *node, int indent);
+void mpi_fprint_scatter(FILE *pre_stream, FILE *stream, FILE *post_stream, st_tree *tree, st_node *node, int indent);
+void mpi_fprint_gather(FILE *pre_stream, FILE *stream, FILE *post_stream, st_tree *tree, st_node *node, int indent);
 
 #ifdef __cplusplus
 }

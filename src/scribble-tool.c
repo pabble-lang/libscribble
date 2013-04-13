@@ -92,13 +92,13 @@ int main(int argc, char *argv[])
   argv[optind-1] = argv[0];
   argv += optind-1;
 
+  if (argc < 2) {
+    show_usage |= 1;
+  }
+
   if (show_usage) {
     fprintf(stderr, "Usage: %s [--parse] [--project role] [--check] [-v] [-h] Scribble.spr\n", argv[0]);
     return EXIT_SUCCESS;
-  }
-
-  if (argc < 2) {
-    show_usage |= 1;
   }
 
   if (show_version) {

@@ -4,3 +4,6 @@ libscribble-dev/
 libscribble.*
 libscribble/
 tmp/
+!*.dirs
+!*.install
+!*.examples

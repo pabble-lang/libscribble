@@ -11,10 +11,10 @@
 #define RANK_VARIABLE "rank"
 #define SIZE_VARIABLE "size"
 
-#define INDENT \
+#define INDENT(stream) \
   do {\
     for (int i=0; i<indent; ++i)\
-      mpi_fprintf(stream, "  ");\
+      mpi_fprintf((stream), "  ");\
   } while (0)
 
 typedef struct {
@@ -23,6 +23,8 @@ typedef struct {
 } string_list;
 
 string_list labels;
+
+static unsigned int primitive_count = 0;
 
 // Helper function
 void mpi_fprint_const_or_var(FILE *stream, st_tree *tree, st_expr *e)
@@ -71,7 +73,7 @@ void mpi_find_labels(st_node *node)
 }
 
 // Helper function
-void _mpi_fprint_children(FILE *stream, st_tree *tree, st_node *node, int indent)
+void _mpi_fprint_children(FILE *pre_stream, FILE *stream, FILE *post_stream, st_tree *tree, st_node *node, int indent)
 {
   int skip_node = 0;
   for (int child=0; child<node->nchild; child++) {
@@ -84,13 +86,13 @@ void _mpi_fprint_children(FILE *stream, st_tree *tree, st_node *node, int indent
             && strcmp(node->children[child+1]->interaction->from->name, ST_ROLE_ALL) == 0) {
           {
             indent++;
-            INDENT;
+            INDENT(stream);
             mpi_fprintf(stream, "/* Allgather/Alltoall\n");
             scribble_fprint_send(stream, node->children[child], indent+1);
             scribble_fprint_recv(stream, node->children[child+1], indent+1);
-            INDENT;
+            INDENT(stream);
             mpi_fprintf(stream, "*/\n");
-            mpi_fprint_allgather(stream, tree, node->children[child], indent);
+            mpi_fprint_allgather(pre_stream, stream, post_stream, tree, node->children[child], indent);
             indent--;
           }
           skip_node = 1;
@@ -106,13 +108,13 @@ void _mpi_fprint_children(FILE *stream, st_tree *tree, st_node *node, int indent
               && strcmp(tree->info->groups[group]->name, node->children[child+1]->interaction->to[0]->name) == 0) {
             {
               indent++;
-              INDENT;
+              INDENT(stream);
               mpi_fprintf(stream, "/* Group-to-group\n");
               scribble_fprint_recv(stream, node->children[child], indent+1);
               scribble_fprint_send(stream, node->children[child+1], indent+1);
-              INDENT;
+              INDENT(stream);
               mpi_fprintf(stream, "*/\n");
-              mpi_fprint_allgather(stream, tree, node->children[child], indent);
+              mpi_fprint_allgather(pre_stream, stream, post_stream, tree, node->children[child], indent);
               indent--;
             }
             skip_node = 1;
@@ -128,13 +130,13 @@ void _mpi_fprint_children(FILE *stream, st_tree *tree, st_node *node, int indent
             && strcmp(node->children[child+1]->interaction->msg_cond->name, ST_ROLE_ALL) == 0) {
           {
             indent++;
-            INDENT;
+            INDENT(stream);
             mpi_fprintf(stream, "/* Scatter\n");
             scribble_fprint_send(stream, node->children[child], indent+1);
             scribble_fprint_recv(stream, node->children[child+1], indent+1);
-            INDENT;
+            INDENT(stream);
             mpi_fprintf(stream, "*/\n");
-            mpi_fprint_scatter(stream, tree, node->children[child+1], indent); // root role is in receive line.
+            mpi_fprint_scatter(pre_stream, stream, post_stream, tree, node->children[child+1], indent); // root role is in receive line.
             indent--;
           }
           skip_node = 1;
@@ -149,13 +151,13 @@ void _mpi_fprint_children(FILE *stream, st_tree *tree, st_node *node, int indent
             && strcmp(node->children[child+1]->interaction->msg_cond->name, ST_ROLE_ALL) == 0) {
           {
             indent++;
-            INDENT;
+            INDENT(stream);
             mpi_fprintf(stream, "/* Gather\n");
             scribble_fprint_recv(stream, node->children[child], indent+1);
             scribble_fprint_send(stream, node->children[child+1], indent+1);
-            INDENT;
+            INDENT(stream);
             mpi_fprintf(stream, "*/\n");
-            mpi_fprint_gather(stream, tree, node->children[child+1], indent); // root role is in send line.
+            mpi_fprint_gather(pre_stream, stream, post_stream, tree, node->children[child+1], indent); // root role is in send line.
             indent--;
           }
           skip_node = 1;
@@ -166,38 +168,35 @@ void _mpi_fprint_children(FILE *stream, st_tree *tree, st_node *node, int indent
     }
 
     if (!skip_node) {
-      mpi_fprint_node(stream, tree, node->children[child], indent+1);
+      mpi_fprint_node(pre_stream, stream, post_stream, tree, node->children[child], indent+1);
     }
 
   }
 }
 
-void mpi_fprint_allgather(FILE *stream, st_tree *tree, st_node *node, int indent)
+void mpi_fprint_allgather(FILE *pre_stream, FILE *stream, FILE *post_stream, st_tree *tree, st_node *node, int indent)
 {
-  INDENT;
-  mpi_fprintf(stream, "{\n");
-
-  indent++;
-  INDENT;
 
   // Variable declarations
-  mpi_fprintf(stream, "int count = 1 /* CHANGE ME */;\n");
+  mpi_fprintf(pre_stream, "  int count%u = 1 /* CHANGE ME */;\n", primitive_count);
 
-  INDENT;
-  mpi_fprintf(stream, "%s *sbuf = malloc(sizeof(%s) * count);\n",
+  mpi_fprintf(pre_stream, "  %s *sbuf%u = malloc(sizeof(%s) * count%u);\n",
       node->interaction->msgsig.payload,
-      node->interaction->msgsig.payload);
-
-  INDENT;
-  mpi_fprintf(stream, "%s *rbuf = malloc(sizeof(%s) * count * size);\n",
+      primitive_count,
       node->interaction->msgsig.payload,
-      node->interaction->msgsig.payload);
+      primitive_count);
 
-  INDENT;
-  mpi_fprintf(stream, "MPI_Allgather(sbuf, count, ");
+  mpi_fprintf(pre_stream, "  %s *rbuf%u = malloc(sizeof(%s) * count%u * size);\n",
+      node->interaction->msgsig.payload,
+      primitive_count,
+      node->interaction->msgsig.payload,
+      primitive_count);
+
+  INDENT(stream);
+  mpi_fprintf(stream, "MPI_Allgather(sbuf%u, count%u, ", primitive_count, primitive_count);
   mpi_fprint_datatype(stream, node->interaction->msgsig);
   mpi_fprintf(stream, ", ");
-  mpi_fprintf(stream, "rbuf, count, ");
+  mpi_fprintf(stream, "rbuf%u, count%u, ", primitive_count, primitive_count);
   mpi_fprint_datatype(stream, node->interaction->msgsig);
   mpi_fprintf(stream, ", ");
   if ((node->type == ST_NODE_SEND && strcmp(node->interaction->to[0]->name, ST_ROLE_ALL) == 0)
@@ -207,14 +206,10 @@ void mpi_fprint_allgather(FILE *stream, st_tree *tree, st_node *node, int indent
     mpi_fprintf(stream, "%s_comm);\n", node->interaction->from == NULL? node->interaction->to[0]->name : node->interaction->from->name);
   }
 
-  INDENT;
-  mpi_fprintf(stream, "free(sbuf);\n");
-  INDENT;
-  mpi_fprintf(stream, "free(rbuf);\n");
+  mpi_fprintf(post_stream, "  free(sbuf%u);\n", primitive_count);
+  mpi_fprintf(post_stream, "  free(rbuf%u);\n", primitive_count);
 
-  indent--;
-  INDENT;
-  mpi_fprintf(stream, "}\n");
+  primitive_count++;
 }
 
 void mpi_fprint_msg_cond(FILE *stream, st_tree *tree, const msg_cond_t *msg_cond, int indent)
@@ -275,7 +270,7 @@ void mpi_fprint_msg_cond(FILE *stream, st_tree *tree, const msg_cond_t *msg_cond
 
     while (1) {
       if (in_group != -1) {
-        INDENT;
+        INDENT(stream);
         mpi_fprintf(stream, "// Group %s #%d\n", tree->info->groups[in_group]->name, group_memb_idx);
         msg_cond = tree->info->groups[in_group]->membs[group_memb_idx];
       }
@@ -287,7 +282,7 @@ void mpi_fprint_msg_cond(FILE *stream, st_tree *tree, const msg_cond_t *msg_cond
         if (msg_cond->param[param]->type == ST_EXPR_TYPE_RNG) {
           // 1..N
           indent += param;
-          INDENT;
+          INDENT(stream);
           mpi_fprintf(stream, "for (int %c=", 'x'+param);
           mpi_fprint_const_or_var(stream, tree, msg_cond->param[param]->rng->from);
           mpi_fprintf(stream, "; %c<=", 'x'+param);
@@ -297,7 +292,7 @@ void mpi_fprint_msg_cond(FILE *stream, st_tree *tree, const msg_cond_t *msg_cond
         } else {
           // 1 -> 1..1
           indent += param;
-          INDENT;
+          INDENT(stream);
           mpi_fprintf(stream, "for (int %c=", 'x'+param);
           mpi_fprint_const_or_var(stream, tree, msg_cond->param[param]);
           mpi_fprintf(stream, "; %c<=", 'x'+param);
@@ -308,20 +303,23 @@ void mpi_fprint_msg_cond(FILE *stream, st_tree *tree, const msg_cond_t *msg_cond
       }
       if (msg_cond->param[msg_cond->dimen-1]->type == ST_EXPR_TYPE_RNG) {
         indent += (msg_cond->dimen - 1);
-        INDENT;
+        INDENT(stream);
         // cond0 |= ( Worker_RANK(x,y,1) <= rank && rank <= Worker_RANK(x,y,N) );
         mpi_fprintf(stream, "cond%d |= ( %s_RANK(", condition_count, msg_cond->name);
         for (int param=0; param<msg_cond->dimen-1; param++) mpi_fprintf(stream, "%c,", 'x'+param);
         mpi_fprint_const_or_var(stream, tree, msg_cond->param[msg_cond->dimen-1]->rng->from);
         mpi_fprintf(stream, ") <= %s && %s <= %s_RANK(", RANK_VARIABLE, RANK_VARIABLE, msg_cond->name);
-        for (int param=0; param<msg_cond->dimen-1; param++) mpi_fprintf(stream, "%c", 'x'+param);
-        mpi_fprint_const_or_var(stream, tree, msg_cond->param[msg_cond->dimen-1]->rng->to);
-        mpi_fprintf(stream, ") <= %s && %s <= %s_RANK(", RANK_VARIABLE, RANK_VARIABLE, msg_cond->name);
+        for (int param=0; param<msg_cond->dimen-1; param++) mpi_fprintf(stream, "%c,", 'x'+param);
+        if (msg_cond->param[msg_cond->dimen-1]->rng->to->type > 2) {
+          mpi_fprint_expr(stream, msg_cond->param[msg_cond->dimen-1]->rng->to);
+        } else {
+          mpi_fprint_const_or_var(stream, tree, msg_cond->param[msg_cond->dimen-1]->rng->to);
+        }
         mpi_fprintf(stream, ") );\n");
         indent -= (msg_cond->dimen - 1);
       } else {
         indent += (msg_cond->dimen - 1);
-        INDENT;
+        INDENT(stream);
         // cond0 |= ( rank == Worker_RANK(x,y,1) );
         mpi_fprintf(stream, "cond%d |= ( %s == %s_RANK(", condition_count, RANK_VARIABLE,  msg_cond->name);
         for (int param=0; param<msg_cond->dimen-1; param++) mpi_fprintf(stream, "%c,", 'x'+param);
@@ -338,13 +336,14 @@ void mpi_fprint_msg_cond(FILE *stream, st_tree *tree, const msg_cond_t *msg_cond
       break; // For normal case (ie. in_group == -1) this is a one-off loop
     }
 
-    INDENT;
+    INDENT(stream);
     mpi_fprintf(stream, "if (cond%d) ", condition_count);
 
     condition_count++;
   }
 
 }
+
 
 void mpi_fprintf(FILE *stream, const char *format, ...)
 {
@@ -357,13 +356,14 @@ void mpi_fprintf(FILE *stream, const char *format, ...)
   fprintf(stream, "%s", orig_str);
 }
 
-void mpi_fprint_choice(FILE *stream, st_tree *tree, st_node *node, int indent)
+
+void mpi_fprint_choice(FILE *pre_stream, FILE *stream, FILE *post_stream, st_tree *tree, st_node *node, int indent)
 {
   assert(node != NULL && node->type == ST_NODE_CHOICE);
-  INDENT;
+  INDENT(stream);
   mpi_fprintf(stream, "/* Choice \n");
   scribble_fprint_node(stream, node, indent+1);
-  INDENT;
+  INDENT(stream);
   mpi_fprintf(stream, "*/\n");
 
 
@@ -372,7 +372,7 @@ void mpi_fprint_choice(FILE *stream, st_tree *tree, st_node *node, int indent)
 
     indent++;
 
-    INDENT;
+    INDENT(stream);
     mpi_fprintf(stream, "if (0/* condition */) { // branch decision\n");
 
       indent++;
@@ -382,36 +382,36 @@ void mpi_fprint_choice(FILE *stream, st_tree *tree, st_node *node, int indent)
 
         indent++;
 
-        mpi_fprint_node(stream, tree, node->children[child], indent);
+        mpi_fprint_node(pre_stream, stream, post_stream, tree, node->children[child], indent);
 
         indent--;
 
         if (child != node->nchild-1) {
-          INDENT;
+          INDENT(stream);
           mpi_fprintf(stream, "} else if (0/* condition */) { // branch decision\n");
         }
       }
 
       indent--;
 
-    INDENT;
+    INDENT(stream);
     mpi_fprintf(stream, "} // branch decision\n");
 
     indent--;
 
-  INDENT;
+  INDENT(stream);
   mpi_fprintf(stream, "} else {\n");
 
     indent++;
 
-    INDENT;
+    INDENT(stream);
     mpi_fprintf(stream, "MPI_Status status;\n");
 
-    INDENT;
+    INDENT(stream);
     mpi_fprintf(stream, "MPI_Probe(%d, MPI_ANY_TAG, MPI_COMM_WORLD, &status);\n",
         node->choice->at->param[0]->num);
 
-    INDENT;
+    INDENT(stream);
     mpi_fprintf(stream, "switch (status.MPI_TAG) {");
 
       for (int child=0; child<node->nchild; child++) {
@@ -419,10 +419,10 @@ void mpi_fprint_choice(FILE *stream, st_tree *tree, st_node *node, int indent)
 
           // choice at X { U from X; U to Y; /* Multiple lines */ }
           indent++;
-          INDENT;
+          INDENT(stream);
           mpi_fprintf(stream, "case %s:\n", node->children[child]->children[0]->interaction->msgsig.op);
-          mpi_fprint_node(stream, tree, node->children[child], indent);
-          INDENT;
+          mpi_fprint_node(pre_stream, stream, post_stream, tree, node->children[child], indent);
+          INDENT(stream);
           mpi_fprintf(stream, "break;\n");
           indent--;
 
@@ -430,17 +430,17 @@ void mpi_fprint_choice(FILE *stream, st_tree *tree, st_node *node, int indent)
 
           // choice at X { U from X; }
           indent++;
-          INDENT;
+          INDENT(stream);
           mpi_fprintf(stream, "case %s:\n", node->children[child]->interaction->msgsig.op);
-          mpi_fprint_node(stream, tree, node->children[child], indent);
-          INDENT;
+          mpi_fprint_node(pre_stream, stream, post_stream, tree, node->children[child], indent);
+          INDENT(stream);
           mpi_fprintf(stream, "break;\n");
           indent--;
 
         }
       }
 
-    INDENT;
+    INDENT(stream);
     mpi_fprintf(stream, "} // switch\n");
 
   indent--;
@@ -448,23 +448,25 @@ void mpi_fprint_choice(FILE *stream, st_tree *tree, st_node *node, int indent)
   mpi_fprintf(stream, "} // rank selection\n");
 }
 
-void mpi_fprint_node(FILE *stream, st_tree *tree, st_node *node, int indent)
+
+void mpi_fprint_node(FILE *pre_stream, FILE *stream, FILE *post_stream, st_tree *tree, st_node *node, int indent)
 {
   switch (node->type) {
-    case ST_NODE_ROOT:      mpi_fprint_root(stream, tree, node, indent); break;
+    case ST_NODE_ROOT:      mpi_fprint_root(pre_stream, stream, post_stream, tree, node, indent); break;
     case ST_NODE_SENDRECV:  assert(0/* Global protocol not possible */); break;
-    case ST_NODE_SEND:      mpi_fprint_send(stream, tree, node, indent); break;
-    case ST_NODE_RECV:      mpi_fprint_recv(stream, tree, node, indent); break;
-    case ST_NODE_CHOICE:    mpi_fprint_choice(stream, tree, node, indent); break;
-    case ST_NODE_PARALLEL:  mpi_fprint_parallel(stream, tree, node, indent); break;
-    case ST_NODE_RECUR:     mpi_fprint_recur(stream, tree, node, indent); break;
-    case ST_NODE_CONTINUE:  mpi_fprint_continue(stream, tree, node, indent); break;
-    case ST_NODE_FOR:       mpi_fprint_for(stream, tree, node, indent); break;
-    case ST_NODE_ALLREDUCE: mpi_fprint_allreduce(stream, tree, node, indent); break;
+    case ST_NODE_SEND:      mpi_fprint_send(pre_stream, stream, post_stream, tree, node, indent); break;
+    case ST_NODE_RECV:      mpi_fprint_recv(pre_stream, stream, post_stream, tree, node, indent); break;
+    case ST_NODE_CHOICE:    mpi_fprint_choice(pre_stream, stream, post_stream, tree, node, indent); break;
+    case ST_NODE_PARALLEL:  mpi_fprint_parallel(pre_stream, stream, post_stream, tree, node, indent); break;
+    case ST_NODE_RECUR:     mpi_fprint_recur(pre_stream, stream, post_stream, tree, node, indent); break;
+    case ST_NODE_CONTINUE:  mpi_fprint_continue(pre_stream, stream, post_stream, tree, node, indent); break;
+    case ST_NODE_FOR:       mpi_fprint_for(pre_stream, stream, post_stream, tree, node, indent); break;
+    case ST_NODE_ALLREDUCE: mpi_fprint_allreduce(pre_stream, stream, post_stream, tree, node, indent); break;
     default:
       fprintf(stderr, "%s:%d %s Unknown node type: %d\n", __FILE__, __LINE__, __FUNCTION__, node->type);
   }
 }
+
 
 void mpi_fprint_expr(FILE *stream, st_expr *expr)
 {
@@ -536,6 +538,7 @@ void mpi_fprint_expr(FILE *stream, st_expr *expr)
   };
 }
 
+
 void mpi_fprint_datatype(FILE *stream, st_node_msgsig_t msgsig)
 {
   if (strcmp(msgsig.payload, "int") == 0) {
@@ -548,8 +551,6 @@ void mpi_fprint_datatype(FILE *stream, st_node_msgsig_t msgsig)
     mpi_fprintf(stream, "MPI_CHAR");
   }
 }
-
-
 
 
 void mpi_fprint_rank(FILE *stream, st_expr *param, const char *replace, const char *with)
@@ -628,11 +629,11 @@ void mpi_fprint_rank(FILE *stream, st_expr *param, const char *replace, const ch
   }
 }
 
-void mpi_fprint_send(FILE *stream, st_tree *tree, st_node *node, int indent)
+void mpi_fprint_send(FILE *pre_stream, FILE *stream, FILE *post_stream, st_tree *tree, st_node *node, int indent)
 {
   assert(node != NULL && node->type == ST_NODE_SEND);
 
-  INDENT;
+  INDENT(stream);
   // If
   if (node->interaction->msg_cond != NULL) {
     mpi_fprint_msg_cond(stream, tree, node->interaction->msg_cond, indent);
@@ -641,18 +642,18 @@ void mpi_fprint_send(FILE *stream, st_tree *tree, st_node *node, int indent)
   mpi_fprintf(stream, "{\n");
 
   indent++;
-  INDENT;
 
   // Variable declarations
-  mpi_fprintf(stream, "int count = 1 /* CHANGE ME */;\n");
+  mpi_fprintf(pre_stream, "  int count%u = 1 /* CHANGE ME */;\n", primitive_count);
 
-  INDENT;
-  mpi_fprintf(stream, "%s *buf = malloc(sizeof(%s) * count);\n",
+  mpi_fprintf(pre_stream, "  %s *buf%u = malloc(sizeof(%s) * count%u);\n",
       node->interaction->msgsig.payload,
-      node->interaction->msgsig.payload);
+      primitive_count,
+      node->interaction->msgsig.payload,
+      primitive_count);
 
-  INDENT;
-  mpi_fprintf(stream, "MPI_Send(buf, count, ");
+  INDENT(stream);
+  mpi_fprintf(stream, "MPI_Send(buf%u, count%u, ", primitive_count, primitive_count);
   mpi_fprint_datatype(stream, node->interaction->msgsig);
   mpi_fprintf(stream, ", ");
   char *rankbindvar = NULL;
@@ -701,19 +702,20 @@ void mpi_fprint_send(FILE *stream, st_tree *tree, st_node *node, int indent)
   mpi_fprintf(stream, node->interaction->msgsig.op == NULL ? 0: node->interaction->msgsig.op); // This should be a constant
   mpi_fprintf(stream, ", MPI_COMM_WORLD);\n");
 
-  INDENT;
-  mpi_fprintf(stream, "free(buf);\n");
+  mpi_fprintf(post_stream, "  free(buf%u);\n", primitive_count);
 
   indent--;
-  INDENT;
+  INDENT(stream);
   mpi_fprintf(stream, "}\n");
+
+  primitive_count++;
 }
 
-void mpi_fprint_recv(FILE *stream, st_tree *tree, st_node *node, int indent)
+void mpi_fprint_recv(FILE *pre_stream, FILE *stream, FILE *post_stream, st_tree *tree, st_node *node, int indent)
 {
   assert(node != NULL && node->type == ST_NODE_RECV);
 
-  INDENT;
+  INDENT(stream);
   // If
   if (node->interaction->msg_cond != NULL) {
     mpi_fprint_msg_cond(stream, tree, node->interaction->msg_cond, indent);
@@ -722,18 +724,18 @@ void mpi_fprint_recv(FILE *stream, st_tree *tree, st_node *node, int indent)
   mpi_fprintf(stream, "{\n");
 
     indent++;
-    INDENT;
 
     // Variable declarations
-    mpi_fprintf(stream, "int count = 1 /* CHANGE ME */;\n");
+    mpi_fprintf(pre_stream, "  int count%u = 1 /* CHANGE ME */;\n", primitive_count);
 
-    INDENT;
-    mpi_fprintf(stream, "%s *buf = malloc(sizeof(%s) * count);\n",
+    mpi_fprintf(pre_stream, "  %s *buf%u = malloc(sizeof(%s) * count%u);\n",
         node->interaction->msgsig.payload,
-        node->interaction->msgsig.payload);
+        primitive_count,
+        node->interaction->msgsig.payload,
+        primitive_count);
 
-    INDENT;
-    mpi_fprintf(stream, "MPI_Recv(buf, count, ");
+    INDENT(stream);
+    mpi_fprintf(stream, "MPI_Recv(buf%u, count%u, ", primitive_count, primitive_count);
     mpi_fprint_datatype(stream, node->interaction->msgsig);
     mpi_fprintf(stream, ", ");
     char *rankbindvar = NULL;
@@ -753,6 +755,7 @@ void mpi_fprint_recv(FILE *stream, st_tree *tree, st_node *node, int indent)
         mpi_fprintf(stream, ")");
       } else if (node->interaction->msg_cond->dimen == 2) {
 
+        mpi_fprintf(stream, "%s+(", RANK_VARIABLE);
         if (node->interaction->msg_cond->param[0]->type == ST_EXPR_TYPE_RNG
             && node->interaction->msg_cond->param[0]->rng->bindvar != NULL) {
           rankbindvar = strdup(node->interaction->msg_cond->param[0]->rng->bindvar);
@@ -781,83 +784,84 @@ void mpi_fprint_recv(FILE *stream, st_tree *tree, st_node *node, int indent)
     mpi_fprintf(stream, node->interaction->msgsig.op == NULL ? 0: node->interaction->msgsig.op); // This should be a constant
     mpi_fprintf(stream, ", MPI_COMM_WORLD, MPI_STATUS_IGNORE);\n"); // Ignore status (this is not non-blocking)
 
-    INDENT;
-    mpi_fprintf(stream, "free(buf);\n");
+    mpi_fprintf(post_stream, "  free(buf%u);\n", primitive_count);
 
   indent--;
-  INDENT;
+  INDENT(stream);
   mpi_fprintf(stream, "}\n");
+
+  primitive_count++;
 }
 
 
-void mpi_fprint_parallel(FILE *stream, st_tree *tree, st_node *node, int indent)
+void mpi_fprint_parallel(FILE *pre_stream, FILE *stream, FILE *post_stream, st_tree *tree, st_node *node, int indent)
 {
   assert(node != NULL && node->type == ST_NODE_PARALLEL);
 
-  INDENT;
+  INDENT(stream);
   mpi_fprintf(stream, "#pragma omp sections\n");
 
-  INDENT;
+  INDENT(stream);
   mpi_fprintf(stream, "{\n");
 
   indent++;
-  INDENT;
+  INDENT(stream);
 
   for (int child=0; child<node->nchild; ++child) {
-    INDENT;
+    INDENT(stream);
     mpi_fprintf(stream, "#pragma omp section\n");
 
-    INDENT;
+    INDENT(stream);
     mpi_fprintf(stream, "{\n");
-    mpi_fprint_node(stream, tree, node->children[child], indent);
+    mpi_fprint_node(pre_stream, stream, post_stream, tree, node->children[child], indent);
 
-    INDENT;
+    INDENT(stream);
     mpi_fprintf(stream, "}\n");
   }
 
   indent--;
-  INDENT;
+  INDENT(stream);
   mpi_fprintf(stream, "}\n");
 }
 
 
-void mpi_fprint_recur(FILE *stream, st_tree *tree, st_node *node, int indent)
+void mpi_fprint_recur(FILE *pre_stream, FILE *stream, FILE *post_stream, st_tree *tree, st_node *node, int indent)
 {
   assert(node != NULL && node->type == ST_NODE_RECUR);
 
-  INDENT;
+  INDENT(stream);
   mpi_fprintf(stream, "/* Recur\n");
   scribble_fprint_node(stream, node, indent+1);
-  INDENT;
+  INDENT(stream);
   mpi_fprintf(stream, "*/\n");
 
-  INDENT;
+  INDENT(stream);
   mpi_fprintf(stream, "while (1/* CHANGEME */) {\n");
 
-  _mpi_fprint_children(stream, tree, node, indent);
+  _mpi_fprint_children(pre_stream, stream, post_stream, tree, node, indent);
 
     indent++;
-    INDENT;
+    INDENT(stream);
     mpi_fprintf(stream, "break;\n");
 
   indent--;
-  INDENT;
+  INDENT(stream);
   mpi_fprintf(stream, "}\n");
 }
 
 
-void mpi_fprint_continue(FILE *stream, st_tree *tree, st_node *node, int indent)
+void mpi_fprint_continue(FILE *pre_stream, FILE *stream, FILE *post_stream, st_tree *tree, st_node *node, int indent)
 {
   assert(node != NULL && node->type == ST_NODE_CONTINUE);
 
-  INDENT;
+  INDENT(stream);
   mpi_fprintf(stream, "continue;\n");
 }
 
-void mpi_fprint_for(FILE *stream, st_tree *tree, st_node *node, int indent)
+void mpi_fprint_for(FILE *pre_stream, FILE *stream, FILE *post_stream, st_tree *tree, st_node *node, int indent)
 {
   assert(node != NULL && node->type == ST_NODE_FOR);
-  INDENT;
+  INDENT(stream);
 
   mpi_fprintf(stream, "for (int %s = ", node->forloop->range->bindvar);
   mpi_fprint_expr(stream, node->forloop->range->from);
@@ -866,42 +870,39 @@ void mpi_fprint_for(FILE *stream, st_tree *tree, st_node *node, int indent)
   mpi_fprintf(stream, "; %s++) {\n", node->forloop->range->bindvar);
   indent++;
   for (int child=0; child<node->nchild; ++child) {
-    mpi_fprint_node(stream, tree, node->children[child], indent);
+    mpi_fprint_node(pre_stream, stream, post_stream, tree, node->children[child], indent);
   }
   indent--;
-  INDENT;
+  INDENT(stream);
   mpi_fprintf(stream, "}\n");
 }
 
 
-void mpi_fprint_scatter(FILE *stream, st_tree *tree, st_node *node, int indent)
+void mpi_fprint_scatter(FILE *pre_stream, FILE *stream, FILE *post_stream, st_tree *tree, st_node *node, int indent)
 {
   assert(node != NULL && node->type == ST_NODE_RECV);
 
-  INDENT;
-  mpi_fprintf(stream, "{\n");
-
-  indent++;
-  INDENT;
 
   // Variable declarations
-  mpi_fprintf(stream, "int count = 1 /* CHANGE ME */;\n");
+  mpi_fprintf(pre_stream, "  int count%u = 1 /* CHANGE ME */;\n", primitive_count);
 
-  INDENT;
-  mpi_fprintf(stream, "%s *sbuf = malloc(sizeof(%s) * count);\n",
+  mpi_fprintf(pre_stream, "  %s *sbuf%u = malloc(sizeof(%s) * count%u);\n",
       node->interaction->msgsig.payload,
-      node->interaction->msgsig.payload);
-
-  INDENT;
-  mpi_fprintf(stream, "%s *rbuf = malloc(sizeof(%s) * count * size);\n",
+      primitive_count,
       node->interaction->msgsig.payload,
-      node->interaction->msgsig.payload);
+      primitive_count);
 
-  INDENT;
-  mpi_fprintf(stream, "MPI_Scatter(sbuf, count, ");
+  mpi_fprintf(pre_stream, "  %s *rbuf%u = malloc(sizeof(%s) * count%u * size);\n",
+      node->interaction->msgsig.payload,
+      primitive_count,
+      node->interaction->msgsig.payload,
+      primitive_count);
+
+  INDENT(stream);
+  mpi_fprintf(stream, "MPI_Scatter(sbuf%u, count%u, ", primitive_count, primitive_count);
   mpi_fprint_datatype(stream, node->interaction->msgsig);
   mpi_fprintf(stream, ", ");
-  mpi_fprintf(stream, "rbuf, count, ");
+  mpi_fprintf(stream, "rbuf%u, count%u, ", primitive_count, primitive_count);
   mpi_fprint_datatype(stream, node->interaction->msgsig);
   mpi_fprintf(stream, ", %s_RANK(", node->interaction->from->name);
   for (int param=0; param<node->interaction->from->dimen; param++) {
@@ -910,47 +911,40 @@ void mpi_fprint_scatter(FILE *stream, st_tree *tree, st_node *node, int indent)
   }
   mpi_fprintf(stream, "), MPI_COMM_WORLD);\n");
 
-  INDENT;
-  mpi_fprintf(stream, "free(sbuf);\n");
-  INDENT;
-  mpi_fprintf(stream, "free(rbuf);\n");
+  mpi_fprintf(post_stream, "  free(sbuf%u);\n", primitive_count);
+  mpi_fprintf(post_stream, "  free(rbuf%u);\n", primitive_count);
 
-  indent--;
-  INDENT;
-  mpi_fprintf(stream, "}\n");
+  primitive_count++;
 }
 
-void mpi_fprint_gather(FILE *stream, st_tree *tree, st_node *node, int indent)
+void mpi_fprint_gather(FILE *pre_stream, FILE *stream, FILE *post_stream, st_tree *tree, st_node *node, int indent)
 {
   assert(node != NULL && node->type == ST_NODE_SEND);
 
-  INDENT;
-  mpi_fprintf(stream, "{\n");
-
-  indent++;
-  INDENT;
 
   // Variable declarations
-  mpi_fprintf(stream, "int count = 1 /* CHANGE ME */;\n");
+  mpi_fprintf(pre_stream, "  int count%u = 1 /* CHANGE ME */;\n", primitive_count);
 
-  INDENT;
-  mpi_fprintf(stream, "%s *sbuf = malloc(sizeof(%s) * count);\n",
+  mpi_fprintf(pre_stream, "  %s *sbuf%u = malloc(sizeof(%s) * count%u);\n",
       node->interaction->msgsig.payload,
-      node->interaction->msgsig.payload);
-
-  INDENT;
-  mpi_fprintf(stream, "%s *rbuf = malloc(sizeof(%s) * count * size);\n",
+      primitive_count,
       node->interaction->msgsig.payload,
-      node->interaction->msgsig.payload);
+      primitive_count);
 
-  INDENT;
+  mpi_fprintf(pre_stream, "  %s *rbuf%u = malloc(sizeof(%s) * count%u * size);\n",
+      node->interaction->msgsig.payload,
+      primitive_count,
+      node->interaction->msgsig.payload,
+      primitive_count);
+
+  INDENT(stream);
   if (strlen(node->interaction->msgsig.op)>0) {
-    mpi_fprintf(stream, "MPI_Reduce(sbuf, count, "); // Reduce (MPI_Op as Label)
+    mpi_fprintf(stream, "MPI_Reduce(sbuf%u, count%u, ", primitive_count, primitive_count); // Reduce (MPI_Op as Label)
   } else {
-    mpi_fprintf(stream, "MPI_Gather(sbuf, count, "); // Gather
+    mpi_fprintf(stream, "MPI_Gather(sbuf%u, count%u, ", primitive_count, primitive_count); // Gather
   }
   mpi_fprint_datatype(stream, node->interaction->msgsig);
-  mpi_fprintf(stream, ", rbuf, count, ");
+  mpi_fprintf(stream, ", rbuf%u, count%u, ", primitive_count, primitive_count);
   mpi_fprint_datatype(stream, node->interaction->msgsig);
   if (strlen(node->interaction->msgsig.op)>0) {
     mpi_fprintf(stream, ", %s", node->interaction->msgsig.op); // MPI_Op
@@ -962,73 +956,66 @@ void mpi_fprint_gather(FILE *stream, st_tree *tree, st_node *node, int indent)
   }
   mpi_fprintf(stream, "), MPI_COMM_WORLD);\n");
 
-  INDENT;
-  mpi_fprintf(stream, "free(sbuf);\n");
-  INDENT;
-  mpi_fprintf(stream, "free(rbuf);\n");
+  mpi_fprintf(post_stream, "  free(sbuf%u);\n", primitive_count);
+  mpi_fprintf(post_stream, "  free(rbuf%u);\n", primitive_count);
 
-  indent--;
-  INDENT;
-  mpi_fprintf(stream, "}\n");
+  primitive_count++;
 }
 
 
-
-void mpi_fprint_allreduce(FILE *stream, st_tree *tree, st_node *node, int indent)
+void mpi_fprint_allreduce(FILE *pre_stream, FILE *stream, FILE *post_stream, st_tree *tree, st_node *node, int indent)
 {
   assert(node != NULL && node->type == ST_NODE_ALLREDUCE);
 
-  INDENT;
-  mpi_fprintf(stream, "{\n");
-
-  indent++;
-  INDENT;
 
   // Variable declarations
-  mpi_fprintf(stream, "int count = 1 /* CHANGE ME */;\n");
+  mpi_fprintf(pre_stream, "  int count%u = 1 /* CHANGE ME */;\n", primitive_count);
 
-  INDENT;
-  mpi_fprintf(stream, "%s *sbuf = malloc(sizeof(%s) * count);\n",
+  mpi_fprintf(pre_stream, "  %s *sbuf%u = malloc(sizeof(%s) * count%u);\n",
       node->interaction->msgsig.payload,
-      node->interaction->msgsig.payload);
-
-  INDENT;
-  mpi_fprintf(stream, "%s *rbuf = malloc(sizeof(%s) * count);\n",
+      primitive_count,
       node->interaction->msgsig.payload,
-      node->interaction->msgsig.payload);
+      primitive_count);
 
-  INDENT;
-  mpi_fprintf(stream, "MPI_Reduce(sbuf, rbuf, count, ");
+  mpi_fprintf(pre_stream, "  %s *rbuf%u = malloc(sizeof(%s) * count%u);\n",
+      node->interaction->msgsig.payload,
+      primitive_count,
+      node->interaction->msgsig.payload,
+      primitive_count);
+
+  INDENT(stream);
+  mpi_fprintf(stream, "MPI_Reduce(sbuf%u, rbuf%u, count, ", primitive_count, primitive_count);
   mpi_fprint_datatype(stream, node->interaction->msgsig);
   mpi_fprintf(stream, ", %s, MPI_COMM_WORLD);\n", node->interaction->msgsig.op); // MPI_Op
 
-  INDENT;
-  mpi_fprintf(stream, "free(sbuf);\n");
-  INDENT;
-  mpi_fprintf(stream, "free(rbuf);\n");
+  mpi_fprintf(post_stream, "  free(sbuf%u);\n", primitive_count);
+  mpi_fprintf(post_stream, "  free(rbuf%u);\n", primitive_count);
 
-  indent--;
-  INDENT;
-  mpi_fprintf(stream, "}\n");
+  primitive_count++;
 }
 
 
-void mpi_fprint_root(FILE *stream, st_tree* tree, st_node *node, int indent)
+void mpi_fprint_root(FILE *pre_stream, FILE *stream, FILE *post_stream, st_tree* tree, st_node *node, int indent)
 {
   assert(node != NULL && node->type == ST_NODE_ROOT);
 
-  mpi_fprintf(stream, "{\n");
+  mpi_fprintf(stream, "\n");
+  INDENT(stream);
+  mpi_fprintf(stream, "{ /* --- BEGIN Protocol body --- */\n\n");
 
-  _mpi_fprint_children(stream, tree, node, indent);
+  _mpi_fprint_children(pre_stream, stream, post_stream, tree, node, indent);
 
-  INDENT;
-  mpi_fprintf(stream, "}\n");
+  mpi_fprintf(stream, "\n");
+  INDENT(stream);
+  mpi_fprintf(stream, "} /* --- END Protocol body --- */ \n\n");
 }
 
 
-// TODO I am disgusted by this function. Please don't look at it.
 void mpi_fprint(FILE *stream, st_tree *tree)
 {
+  FILE *body_fd = fopen("/tmp/scribble_mpi.body.c", "w+");
+  FILE *tail_fd = fopen("/tmp/scribble_mpi.tail.c", "w+");
+
   mpi_fprintf(stream, "#include <stdio.h>\n");
   mpi_fprintf(stream, "#include <stdlib.h>\n");
   mpi_fprintf(stream, "#include <string.h>\n");
@@ -1143,9 +1130,9 @@ void mpi_fprint(FILE *stream, st_tree *tree)
             mpi_fprint_const_or_var(stream, tree, tree->info->groups[group]->membs[role]->param[param]->rng->to);
             mpi_fprintf(stream, "; param%d++) {\n", param);
           } else if (tree->info->groups[group]->membs[role]->param[param]->type == ST_EXPR_TYPE_VAR) {
-            mpi_fprintf(stream, "%s", tree->info->groups[group]->membs[role]->param[param]->var);
+            mpi_fprintf(stream, "  int param%d = %s\n", param, tree->info->groups[group]->membs[role]->param[param]->var); // Rank[var]
           } else if (tree->info->groups[group]->membs[role]->param[param]->type == ST_EXPR_TYPE_CONST) {
-            mpi_fprintf(stream, "%d", tree->info->groups[group]->membs[role]->param[param]->num);
+            mpi_fprintf(stream, "  int param%d = %d\n", param, tree->info->groups[group]->membs[role]->param[param]->num); // Rank[num]
           }
         }
         // The actual line
@@ -1200,8 +1187,26 @@ void mpi_fprint(FILE *stream, st_tree *tree)
   // Generate body of protocol
   //
   int indent = 1;
-  INDENT;
-  mpi_fprint_node(stream, tree, tree->root, indent);
+  mpi_fprint_node(stream, body_fd, tail_fd, tree, tree->root, indent);
+
+  rewind(body_fd);
+  rewind(tail_fd);
+
+  char buffer[256];
+  int bufsize = 0;
+  memset(buffer, 0, 256);
+  while (!feof(body_fd)) {
+    bufsize = fread(buffer, 1, 256, body_fd);
+    buffer[bufsize] = 0;
+    fprintf(stream, "%s", buffer);
+  }
+
+  memset(buffer, 0, 256);
+  while (!feof(tail_fd)) {
+    bufsize = fread(buffer, 1, 256, tail_fd);
+    buffer[bufsize] = 0;
+    fprintf(stream, "%s", buffer);
+  }
 
   mpi_fprintf(stream, "\n  /** End of protocol %s **/\n\n", tree->info->name);
 
@@ -1212,6 +1217,9 @@ void mpi_fprint(FILE *stream, st_tree *tree)
   }
   mpi_fprintf(stream, "  return EXIT_SUCCESS;\n");
   mpi_fprintf(stream, "}\n");
+
+  fclose(body_fd);
+  fclose(tail_fd);
 }
 
 void mpi_print(FILE *stream, st_tree *local_tree)
