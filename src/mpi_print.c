@@ -36,7 +36,7 @@ void mpi_fprint_const_or_var(FILE *stream, st_tree *tree, st_expr *e)
     for (int constant=0; constant<tree->info->nconst; constant++) {
       // If matches constant name and has defined value
       if (strcmp(tree->info->consts[constant]->name, e->var) == 0 && tree->info->consts[constant]->type == ST_CONST_VALUE) {
-        mpi_fprintf(stream, "%u", tree->info->consts[constant]->value);
+        mpi_fprintf(stream, "%u/*=%s*/", tree->info->consts[constant]->value, tree->info->consts[constant]->name);
         printed = 1;
       }
     }
@@ -181,15 +181,15 @@ void mpi_fprint_allgather(FILE *pre_stream, FILE *stream, FILE *post_stream, st_
   mpi_fprintf(pre_stream, "  int count%u = 1 /* CHANGE ME */;\n", primitive_count);
 
   mpi_fprintf(pre_stream, "  %s *sbuf%u = malloc(sizeof(%s) * count%u);\n",
-      node->interaction->msgsig.payload,
+      strlen(node->interaction->msgsig.payload) == 0? "unsigned char" : node->interaction->msgsig.payload, // Byte or type
       primitive_count,
-      node->interaction->msgsig.payload,
+      strlen(node->interaction->msgsig.payload) == 0? "unsigned char" : node->interaction->msgsig.payload, // Byte or type
       primitive_count);
 
   mpi_fprintf(pre_stream, "  %s *rbuf%u = malloc(sizeof(%s) * count%u * size);\n",
-      node->interaction->msgsig.payload,
+      strlen(node->interaction->msgsig.payload) == 0? "unsigned char" : node->interaction->msgsig.payload, // Byte or type
       primitive_count,
-      node->interaction->msgsig.payload,
+      strlen(node->interaction->msgsig.payload) == 0? "unsigned char" : node->interaction->msgsig.payload, // Byte or type
       primitive_count);
 
   INDENT(stream);
@@ -265,6 +265,7 @@ void mpi_fprint_msg_cond(FILE *stream, st_tree *tree, const msg_cond_t *msg_cond
     }
   }
 
+  // if role[cond0][cond1] (or more) or in a group
   if (msg_cond->dimen >= 2 || in_group != -1) {
     mpi_fprintf(stream, "int cond%d = 0;\n", condition_count);
 
@@ -549,6 +550,8 @@ void mpi_fprint_datatype(FILE *stream, st_node_msgsig_t msgsig)
     mpi_fprintf(stream, "MPI_DOUBLE");
   } else if (strcmp(msgsig.payload, "char") == 0) {
     mpi_fprintf(stream, "MPI_CHAR");
+  } else {
+    mpi_fprintf(stream, "MPI_BYTE/*UNDEFINED MPI_Datatype*/");
   }
 }
 
@@ -647,9 +650,9 @@ void mpi_fprint_send(FILE *pre_stream, FILE *stream, FILE *post_stream, st_tree 
   mpi_fprintf(pre_stream, "  int count%u = 1 /* CHANGE ME */;\n", primitive_count);
 
   mpi_fprintf(pre_stream, "  %s *buf%u = malloc(sizeof(%s) * count%u);\n",
-      node->interaction->msgsig.payload,
+      strlen(node->interaction->msgsig.payload) == 0? "unsigned char" : node->interaction->msgsig.payload, // Byte or type
       primitive_count,
-      node->interaction->msgsig.payload,
+      strlen(node->interaction->msgsig.payload) == 0? "unsigned char" : node->interaction->msgsig.payload, // Byte or type
       primitive_count);
 
   INDENT(stream);
@@ -659,9 +662,14 @@ void mpi_fprint_send(FILE *pre_stream, FILE *stream, FILE *post_stream, st_tree 
   char *rankbindvar = NULL;
   if (node->interaction->msg_cond != NULL) { // There is msg_cond, so need to do role->rank conversion
     if (node->interaction->msg_cond->dimen == 0) { // Ordinary roles
+
+      // Use the #define directly
       mpi_fprintf(stream, "%s_RANK", node->interaction->msg_cond->name);
+
     } else if (node->interaction->msg_cond->dimen == 1) { // Linear Parameterised roles
-      mpi_fprintf(stream, "%s_RANK(", node->interaction->msg_cond->name);
+
+      // Use the offset directly, replacing bind variable with rank
+      //   eg. if R[i:1..3] D() to R[i+1] --> rank+1
       for (int param=0; param<node->interaction->msg_cond->dimen; param++) {
         if (param!=0) mpi_fprintf(stream, ",");
         if (node->interaction->msg_cond->param[param]->type == ST_EXPR_TYPE_RNG
@@ -670,33 +678,77 @@ void mpi_fprint_send(FILE *pre_stream, FILE *stream, FILE *post_stream, st_tree 
         }
         mpi_fprint_rank(stream, node->interaction->to[param]->param[param], rankbindvar, RANK_VARIABLE);
       }
-      mpi_fprintf(stream, ")");
+
     } else if (node->interaction->msg_cond->dimen == 2) {
 
-      mpi_fprintf(stream, "%s+(", RANK_VARIABLE);
-      if (node->interaction->msg_cond->param[0]->type == ST_EXPR_TYPE_RNG
-          && node->interaction->msg_cond->param[0]->rng->bindvar != NULL) {
-        rankbindvar = strdup(node->interaction->msg_cond->param[0]->rng->bindvar);
-      }
-      mpi_fprint_rank(stream, node->interaction->to[0]->param[0], rankbindvar, "0");
-      mpi_fprintf(stream, ")*(");
-      mpi_fprint_const_or_var(stream, tree, node->interaction->msg_cond->param[0]->rng->to);
-      mpi_fprintf(stream, "-");
-      mpi_fprint_const_or_var(stream, tree, node->interaction->msg_cond->param[0]->rng->from);
-      mpi_fprintf(stream, ")+");
-      if (node->interaction->msg_cond->param[1]->type == ST_EXPR_TYPE_RNG
-          && node->interaction->msg_cond->param[1]->rng->bindvar != NULL) {
-        rankbindvar = strdup(node->interaction->msg_cond->param[1]->rng->bindvar);
-        mpi_fprint_rank(stream, node->interaction->to[0]->param[1], rankbindvar, "0");
-      } else {
-        mpi_fprint_const_or_var(stream, tree, node->interaction->to[0]->param[1]);
-        mpi_fprintf(stream, "-");
-        mpi_fprint_const_or_var(stream, tree, node->interaction->msg_cond->param[1]);
-      }
+      // Just constants
+      if (node->interaction->msg_cond->param[0]->type != ST_EXPR_TYPE_RNG
+          && node->interaction->msg_cond->param[1]->type != ST_EXPR_TYPE_RNG) {
+
+        mpi_fprintf(stream, "%s_RANK(", node->interaction->to[0]->name);
+        mpi_fprint_expr(stream, node->interaction->to[0]->param[0]);
+        mpi_fprintf(stream, ",");
+        mpi_fprint_expr(stream, node->interaction->to[0]->param[1]);
+        mpi_fprintf(stream, ")");
+
+      } else { // not [const][const]
+
+        // Expression in the form of
+        //   rank
+        //     + ( x-offset * y-size )
+        //     + ( y-offset )
+
+        mpi_fprintf(stream, "%s+(", RANK_VARIABLE);
+
+        // If x-component condition is a range -->
+        //   1. Replace bind variable with "0"
+        //      ie. i+1 --> 0+1
+        //   2. Multiply with 'unit'
+        //
+        if (node->interaction->msg_cond->param[0]->type == ST_EXPR_TYPE_RNG
+            && node->interaction->msg_cond->param[0]->rng->bindvar != NULL) {
+
+          rankbindvar = strdup(node->interaction->msg_cond->param[0]->rng->bindvar);
+          mpi_fprint_rank(stream, node->interaction->to[0]->param[0], rankbindvar, "0"); // This is a hack that only work with +/- indices
+
+        } else {
+          // If it's not a range then try to print the expression as expression (to be multiplied by the unit)
+          mpi_fprint_expr(stream, node->interaction->to[0]->param[0]);
+        }
+
+        mpi_fprintf(stream, ")*(");
+
+        // Finding the 'unit' of the argument
+
+        for (int role=0; role<tree->info->nrole; role++) {
+          if (strcmp(node->interaction->msg_cond->name, tree->info->roles[role]->name) == 0) {
+            assert(tree->info->roles[role]->dimen == 2);
+            mpi_fprint_const_or_var(stream, tree, tree->info->roles[role]->param[1]->rng->to);
+            mpi_fprintf(stream, "-");
+            mpi_fprint_const_or_var(stream, tree, tree->info->roles[role]->param[1]->rng->from);
+            mpi_fprintf(stream, "+1");
+          }
+        }
+
+        mpi_fprintf(stream, ")+(");
+
+        // 2nd index
+
+        if (node->interaction->msg_cond->param[1]->type == ST_EXPR_TYPE_RNG) {
+          rankbindvar = strdup(node->interaction->msg_cond->param[1]->rng->bindvar);
+          mpi_fprint_rank(stream, node->interaction->to[0]->param[1], rankbindvar, "0");
+        } else {
+          mpi_fprint_expr(stream, node->interaction->to[0]->param[1]);
+        }
+
+        mpi_fprintf(stream, ")");
+
+      } // Not [const][const]
 
     } else {
       assert(0); // Not supported > 2 dimension
     }
+
   }
   mpi_fprintf(stream, ", ");
   mpi_fprintf(stream, node->interaction->msgsig.op == NULL ? 0: node->interaction->msgsig.op); // This should be a constant
@@ -729,9 +781,9 @@ void mpi_fprint_recv(FILE *pre_stream, FILE *stream, FILE *post_stream, st_tree 
     mpi_fprintf(pre_stream, "  int count%u = 1 /* CHANGE ME */;\n", primitive_count);
 
     mpi_fprintf(pre_stream, "  %s *buf%u = malloc(sizeof(%s) * count%u);\n",
-        node->interaction->msgsig.payload,
+        strlen(node->interaction->msgsig.payload) == 0? "unsigned char" : node->interaction->msgsig.payload, // Byte or type
         primitive_count,
-        node->interaction->msgsig.payload,
+        strlen(node->interaction->msgsig.payload) == 0? "unsigned char" : node->interaction->msgsig.payload, // Byte or type
         primitive_count);
 
     INDENT(stream);
@@ -762,9 +814,13 @@ void mpi_fprint_recv(FILE *pre_stream, FILE *stream, FILE *post_stream, st_tree 
         }
         mpi_fprint_rank(stream, node->interaction->from->param[0], rankbindvar, "0");
         mpi_fprintf(stream, ")*(");
-        mpi_fprint_const_or_var(stream, tree, node->interaction->msg_cond->param[0]->rng->to);
-        mpi_fprintf(stream, "-");
-        mpi_fprint_const_or_var(stream, tree, node->interaction->msg_cond->param[0]->rng->from);
+        if (node->interaction->msg_cond->param[0]->type == ST_EXPR_TYPE_RNG) {
+          mpi_fprint_const_or_var(stream, tree, node->interaction->msg_cond->param[0]->rng->to);
+          mpi_fprintf(stream, "-");
+          mpi_fprint_const_or_var(stream, tree, node->interaction->msg_cond->param[0]->rng->from);
+        } else {
+          mpi_fprint_const_or_var(stream, tree, node->interaction->msg_cond->param[0]);
+        }
         mpi_fprintf(stream, ")+");
         if (node->interaction->msg_cond->param[1]->type == ST_EXPR_TYPE_RNG
             && node->interaction->msg_cond->param[1]->rng->bindvar != NULL) {
@@ -926,15 +982,15 @@ void mpi_fprint_gather(FILE *pre_stream, FILE *stream, FILE *post_stream, st_tre
   mpi_fprintf(pre_stream, "  int count%u = 1 /* CHANGE ME */;\n", primitive_count);
 
   mpi_fprintf(pre_stream, "  %s *sbuf%u = malloc(sizeof(%s) * count%u);\n",
-      node->interaction->msgsig.payload,
+      strlen(node->interaction->msgsig.payload) == 0? "unsigned char" : node->interaction->msgsig.payload, // Byte or type
       primitive_count,
-      node->interaction->msgsig.payload,
+      strlen(node->interaction->msgsig.payload) == 0? "unsigned char" : node->interaction->msgsig.payload, // Byte or type
       primitive_count);
 
   mpi_fprintf(pre_stream, "  %s *rbuf%u = malloc(sizeof(%s) * count%u * size);\n",
-      node->interaction->msgsig.payload,
+      strlen(node->interaction->msgsig.payload) == 0? "unsigned char" : node->interaction->msgsig.payload, // Byte or type
       primitive_count,
-      node->interaction->msgsig.payload,
+      strlen(node->interaction->msgsig.payload) == 0? "unsigned char" : node->interaction->msgsig.payload, // Byte or type
       primitive_count);
 
   INDENT(stream);
@@ -972,9 +1028,9 @@ void mpi_fprint_allreduce(FILE *pre_stream, FILE *stream, FILE *post_stream, st_
   mpi_fprintf(pre_stream, "  int count%u = 1 /* CHANGE ME */;\n", primitive_count);
 
   mpi_fprintf(pre_stream, "  %s *sbuf%u = malloc(sizeof(%s) * count%u);\n",
-      node->interaction->msgsig.payload,
+      strlen(node->interaction->msgsig.payload) == 0? "unsigned char" : node->interaction->msgsig.payload, // Byte or type
       primitive_count,
-      node->interaction->msgsig.payload,
+      strlen(node->interaction->msgsig.payload) == 0? "unsigned char" : node->interaction->msgsig.payload, // Byte or type
       primitive_count);
 
   mpi_fprintf(pre_stream, "  %s *rbuf%u = malloc(sizeof(%s) * count%u);\n",
