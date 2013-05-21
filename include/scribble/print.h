@@ -4,11 +4,11 @@
  * \file
  * Header file for Scribble pretty printer.
  *
- * \headerfile "st_node.h"
+ * \headerfile <sesstype/st_node.h>
  */
 
 #include <stdio.h>
-#include "st_node.h"
+#include <sesstype/st_node.h>
 
 #ifdef __cplusplus
 extern "C" {

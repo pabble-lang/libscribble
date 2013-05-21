@@ -3,7 +3,7 @@
  * This file contains a series of validation checks for a given
  * Scribble protocol.
  *
- * \headerfile "st_node.h"
+ * \headerfile <sesstype/st_node.h>
  * \headerfile "scribble/check.h"
  */
 
@@ -12,8 +12,8 @@
 #include <stdlib.h>
 #include <string.h>
 
-#include <st_node.h>
-#include "check.h"
+#include <sesstype/st_node.h>
+#include "scribble/check.h"
 
 
 static int scribble_check_defined_roles_r(st_node *node, st_role **decl_roles, int ndecl_role)

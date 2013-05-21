@@ -4,7 +4,7 @@
 
 .PHONY: all clean clean-all install
 
-$(BUILD_DIR)/%.o: %.c $(INCLUDE_DIR)/%.h
+$(BUILD_DIR)/%.o: %.c $(INCLUDE_DIR)/scribble/%.h
 	$(CC) $(CFLAGS) -c $*.c \
 	  -o $(BUILD_DIR)/$*.o
 

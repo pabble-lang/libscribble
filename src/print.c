@@ -3,7 +3,7 @@
  * This file contains a pretty printer of (multiparty) session
  * in form of a Scribble protocol.
  *
- * \headerfile "st_node.h"
+ * \headerfile <sesstype/st_node.h>
  * \headerfile "scribble/print.h"
  */
 
@@ -13,8 +13,8 @@
 #include <string.h>
 #include <stdarg.h>
 
-#include <st_node.h>
-#include "print.h"
+#include <sesstype/st_node.h>
+#include "scribble/print.h"
 
 
 int scribble_colour_mode(int colour_mode)

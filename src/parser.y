@@ -4,8 +4,8 @@
 #include <stdlib.h>
 #include <string.h>
 
-#include "st_node.h"
-#include "parser_helper.h"
+#include <sesstype/st_node.h>
+#include "scribble/parser_helper.h"
 
 #ifdef __DEBUG__
 #define YYDEBUG 1
@@ -72,8 +72,8 @@ void yyerror(st_tree *tree, const char *s)
 %code requires {
 #include <string.h>
 
-#include "st_node.h"
-#include "parser_helper.h"
+#include <sesstype/st_node.h>
+#include "scribble/parser_helper.h"
 }
 
 %parse-param {st_tree *tree}

@@ -2,12 +2,12 @@
  * \file
  * Standalone Scribble parser.
  *
- * \headerfile "st_node.h"
+ * \headerfile <sesstype/st_node.h>
  */
 #include <stdio.h>
 #include <stdlib.h>
 
-#include "st_node.h"
+#include <sesstype/st_node.h>
 
 extern int yyparse(st_tree *tree);
 extern FILE *yyin;

@@ -3,7 +3,7 @@
 #include <stdlib.h>
 #include <string.h>
 
-#include "parser.h"
+#include "scribble/parser.h"
 
 #ifdef __DEBUG__
 #define DEBUG_PRINT(s) do { fprintf(stderr, (s), yytext); } while (0)

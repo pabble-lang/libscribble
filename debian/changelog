@@ -1,3 +1,9 @@
+libscribble (1.1.0-2~scribble0.2+pabble) unstable; urgency=low
+
+  * Update include namespace to scribble
+
+ -- Nicholas Ng <nickng@doc.ic.ac.uk>  Tue, 21 May 2013 16:13:00 +0000
+
 libscribble (1.1.0-1~scribble0.2+pabble) unstable; urgency=low
 
   * Fix argument handling

@@ -5,13 +5,12 @@
 #include <string.h>
 #include <unistd.h>
 
-#include "st_node.h"
-#include "st_normalise.h"
+#include <sesstype/st_node.h>
+#include <sesstype/st_normalise.h>
 
-#include "check.h"
-#include "print.h"
-#include "project.h"
-#include "mpi_print.h"
+#include "scribble/check.h"
+#include "scribble/print.h"
+#include "scribble/project.h"
 
 extern int yyparse(st_tree *tree);
 extern FILE *yyin;
@@ -28,14 +27,12 @@ int main(int argc, char *argv[])
   char *output_file   = NULL;
   char *project_role  = NULL;
   char *scribble_file = NULL;
-  FILE *mpi_handle    = NULL;
 
   while (1) {
     static struct option long_options[] = {
       {"project", required_argument, 0, 'p'},
       {"output",  required_argument, 0, 'o'},
       {"colour",  no_argument,       0,  0 },
-      {"mpi",     required_argument, 0, 'm'},
       {"parse",   no_argument,       0, 's'},
       {"check",   no_argument,       0, 'c'},
       {"version", no_argument,       0, 'v'},
@@ -53,13 +50,6 @@ int main(int argc, char *argv[])
       case 0:
         if (0 == strcmp(long_options[option_idx].name, "colour")) {
           scribble_colour_mode(1);
-        }
-        break;
-      case 'm':
-        if (strcmp(optarg, "--") == 0) {
-          mpi_handle = stdout;
-        } else {
-          mpi_handle = fopen(optarg, "a");
         }
         break;
       case 'p':
@@ -145,13 +135,6 @@ int main(int argc, char *argv[])
       st_node_normalise(local_tree->root);
       if (verbosity_level > 2) st_tree_print(local_tree);
       scribble_print(local_tree);
-      if (mpi_handle != NULL) {
-        if (verbosity_level > 0) fprintf(stderr, "Writing MPI\n");
-        mpi_print(mpi_handle, local_tree);
-        if (mpi_handle != stdout) {
-          fclose(mpi_handle);
-        }
-      }
     } else {
       fprintf(stderr, "ERROR: Cannot project for %s.\n", project_role);
     }

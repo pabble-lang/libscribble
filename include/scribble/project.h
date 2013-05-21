@@ -7,8 +7,8 @@
  *
  */
 
-#include "st_node.h"
-#include "st_expr.h"
+#include <sesstype/st_node.h>
+#include <sesstype/st_expr.h>
 
 #ifdef __cplusplus
 extern "C" {

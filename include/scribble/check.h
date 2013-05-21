@@ -7,7 +7,7 @@
  * \headerfile "st_node.h"
  */
 
-#include "st_node.h"
+#include <sesstype/st_node.h>
 
 int scribble_check(st_tree *tree);
 

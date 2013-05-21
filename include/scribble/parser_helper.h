@@ -1,9 +1,9 @@
-#ifndef PARSER_HELPER__H__
-#define PARSER_HELPER__H__
+#ifndef SCRIBBLE__PARSER_HELPER__H__
+#define SCRIBBLE__PARSER_HELPER__H__
 
 #include <assert.h>
 #include <string.h>
-#include "st_node.h"
+#include <sesstype/st_node.h>
 
 typedef struct {
   unsigned int count;
@@ -229,4 +229,4 @@ static st_nodes *interaction_sequence(st_nodes *nodes, st_node *node)
 }
 #pragma clang diagnostic pop
 
-#endif // PARSER_HELPER__H__
+#endif // SCRIBBLE__PARSER_HELPER__H__

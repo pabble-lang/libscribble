@@ -3,7 +3,7 @@
  * This file contains an implementation of projection algorithm
  * from global Scribble into endpoint Scribble.
  *
- * \headerfile "st_node.h"
+ * \headerfile <sesstype/st_node.h>
  * \headerfile "scribble/project.h"
  */
 
@@ -12,8 +12,8 @@
 #include <string.h>
 #include <assert.h>
 
-#include <st_node.h>
-#include "project.h"
+#include <sesstype/st_node.h>
+#include "scribble/project.h"
 
 
 st_node *scribble_project_root(st_tree *tree, st_node *node, char *projectrole, st_expr_list *env)
