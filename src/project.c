@@ -413,6 +413,7 @@ st_tree *scribble_project(st_tree *global, char *projectrole)
 
   st_tree *local = st_tree_init((st_tree *)malloc(sizeof(st_tree)));
 
+  st_tree_set_package(local, global->info->package);
   st_tree_set_name(local, global->info->name);
   local->info->type = ST_TYPE_LOCAL;
 
