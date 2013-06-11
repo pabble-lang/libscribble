@@ -380,7 +380,7 @@ void scribble_fprint_for(FILE *stream, st_node *node, int indent)
   assert(node != NULL && node->type == ST_NODE_FOR);
   for (int i=0; i<indent; ++i) scribble_fprintf(stream, "  ");
 
-  scribble_fprintf(stream, "for (%s:", node->forloop->range->bindvar);
+  scribble_fprintf(stream, "foreach (%s:", node->forloop->range->bindvar);
   scribble_fprint_expr(stream, node->forloop->range->from);
   scribble_fprintf(stream, "..");
   scribble_fprint_expr(stream, node->forloop->range->to);
