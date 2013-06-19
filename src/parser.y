@@ -185,6 +185,7 @@ bind_expr : IDENTIFIER COLON range_expr { assert($3->type == ST_EXPR_TYPE_RNG); 
           ;
 
 range_expr : arith_expr NUMRANGE arith_expr { $$ = st_expr_range($1, $3); }
+           | arith_expr /* Shorthand*/      { $$ = st_expr_range($1, $1); }
            ;
 
 
