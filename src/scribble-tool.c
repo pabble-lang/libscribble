@@ -124,7 +124,6 @@ int main(int argc, char *argv[])
       scribble_print(tree);
     }
     st_node_reset_markedflag(tree->root);
-    assert(0 /* Well-formedness checks unimplemented */);
   }
 
   if (project_role != NULL) {
@@ -139,7 +138,6 @@ int main(int argc, char *argv[])
       fprintf(stderr, "ERROR: Cannot project for %s.\n", project_role);
     }
   }
-
 
   st_tree_free(tree);
 
