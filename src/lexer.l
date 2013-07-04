@@ -10,12 +10,11 @@
 #else
 #define DEBUG_PRINT(s) do {} while (0)
 #endif
-
 %}
 
 %option noinput
 %option nounput
-
+%option yylineno
 
 digit                   [0-9]
 digits                  {digit}{digit}*
@@ -32,7 +31,8 @@ comment                 "//"([^\n])*\n
 %%
 
     /* Skip whitespace */
-[ \t\r\n]               ;
+[ \t\r]                 ;
+\n                      { }
 
     /* Keywords */
 "allreduce"             { DEBUG_PRINT("Token: ALLREDUCE '%s'\n");     return ALLREDUCE;     } /* Pabble */

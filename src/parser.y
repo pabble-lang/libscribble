@@ -11,15 +11,41 @@
 #define YYDEBUG 1
 #endif
 
+#include "scribble/parser.h"
+
 extern int yylex();
 extern FILE *yyin;
+extern int yylineno;
 
 void yyerror(st_tree *tree, const char *s)
 {
-    fprintf(stderr, "Error: %s\n", s);
+    fprintf(stderr, "Error: %s on line %d\n", s, yylineno);
+}
+%}
+
+%code requires {
+#include <string.h>
+
+#include <sesstype/st_node.h>
+#include "scribble/parser_helper.h"
 }
 
-%}
+%union {
+    unsigned long num;
+    char *str;
+    st_node *node;
+    st_nodes *node_list;
+    st_node_msgsig_t msgsig;
+    st_expr *expr;
+    st_role *role;
+    st_role_group *roles;
+    msg_cond_t *msg_cond;
+}
+
+
+%parse-param {st_tree *tree}
+%locations
+%error-verbose
 
     /* Keywords */
 %token ALLREDUCE AND AS AT BETWEEN BY CATCH CHOICE CONST CONTINUE CREATE DO ENTER FOREACH FROM GLOBAL GROUP IF IMPORT INSTANTIATES INTERRUPTIBLE IS LOCAL OR PACKAGE PAR PROTOCOL RANGE REC ROLE SIG SPAWNS THROW TO TYPE WITH
@@ -69,27 +95,6 @@ void yyerror(st_tree *tree, const char *s)
 %left PLUS MINUS
 %left MULTIPLY DIVIDE MODULO SHL SHR
 
-%code requires {
-#include <string.h>
-
-#include <sesstype/st_node.h>
-#include "scribble/parser_helper.h"
-}
-
-%parse-param {st_tree *tree}
-
-%union {
-    unsigned long num;
-    char *str;
-    st_node *node;
-    st_nodes *node_list;
-    st_node_msgsig_t msgsig;
-    st_expr *expr;
-    st_role *role;
-    st_role_group *roles;
-    msg_cond_t *msg_cond;
-}
-
 %start module
 
 %%
@@ -106,7 +111,7 @@ package_name : IDENTIFIER                  { $$ = strdup($1); }
 module : package_decl import_decls payload_type_decls const_decls protocol_decls
        ;
 
-package_decl : PACKAGE package_name { /* Package name is $2 */ }
+package_decl : PACKAGE package_name { st_tree_set_package(tree, $2); }
              ;
 
 
@@ -138,7 +143,7 @@ payload_type_decl : TYPE LANGLE IDENTIFIER RANGLE IDENTIFIER FROM IDENTIFIER AS 
 /** 3.3 Message Signatures **/
 
 message_operator : /* Empty */ { $$ = NULL; }
-                 | IDENTIFIER  { $$ = $1; }
+                 | IDENTIFIER  { $$ = $1;   }
                  ;
 
 message_signature : message_operator LPAREN payload_types RPAREN { $$ = (st_node_msgsig_t){ .op=$1==NULL?"":strdup($1), .payload=strdup($3) }; }
