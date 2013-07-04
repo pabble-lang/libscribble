@@ -481,7 +481,7 @@ void scribble_fprint(FILE *stream, st_tree *tree)
 
   scribble_fprintf(stream, ") ");
 
-  scribble_fprint_root(stream, tree->root, 0);
+  scribble_fprint_node(stream, tree->root, 0);
 
   scribble_fprintf(stream, "\n");
 }

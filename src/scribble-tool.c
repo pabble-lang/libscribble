@@ -130,7 +130,7 @@ int main(int argc, char *argv[])
     if (verbosity_level > 0) fprintf(stderr, "Projection for %s\n", project_role);
     st_tree *local_tree = scribble_project(tree, project_role);
     if (verbosity_level > 1) st_tree_print(local_tree);
-    if (local_tree->root != 0) {
+    if (local_tree->root != NULL) {
       st_node_normalise(local_tree->root);
       if (verbosity_level > 2) st_tree_print(local_tree);
       scribble_print(local_tree);
