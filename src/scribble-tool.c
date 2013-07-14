@@ -92,7 +92,7 @@ int main(int argc, char *argv[])
   }
 
   if (show_version) {
-    fprintf(stderr, "scribble-tool 1.1.0~scribble0.2+pabble\n");
+    fprintf(stderr, "scribble-tool 1.1.1~scribble0.3+pabble\n");
     return EXIT_SUCCESS;
   }
 

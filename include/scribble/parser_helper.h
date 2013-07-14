@@ -29,11 +29,15 @@ static void register_constant_bounds(st_tree *tree, const char *name, unsigned i
   st_tree_add_const(tree, (st_const_t){.name=strdup(name), .type=ST_CONST_BOUND, .bounds.lbound=lbound, .bounds.ubound=ubound});
 }
 
+static void register_constant_bounds_inf(st_tree *tree, const char *name, unsigned int lbound)
+{
+  st_tree_add_const(tree, (st_const_t){.name=strdup(name), .type=ST_CONST_INF, .inf.lbound=lbound});
+}
+
 static void register_constant(st_tree *tree, const char *name, unsigned int value)
 {
   st_tree_add_const(tree, (st_const_t){.name=strdup(name), .type=ST_CONST_VALUE, .value=value});
 }
-
 
 static void register_range(const char *name, unsigned int from, unsigned int to)
 {
@@ -46,7 +50,9 @@ static void register_range(const char *name, unsigned int from, unsigned int to)
 
 static st_role *role_empty()
 {
-  return (st_role *)malloc(sizeof(st_role));
+  st_role *r = (st_role *)malloc(sizeof(st_role));
+  r->dimen = 0;
+  return r;
 }
 
 static st_role *role_set_name(st_role *role, char *name)

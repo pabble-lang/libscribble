@@ -418,7 +418,7 @@ void scribble_fprint_root(FILE *stream, st_node *node, int indent)
 
 void scribble_fprint(FILE *stream, st_tree *tree)
 {
-  scribble_fprintf(stream, "package %s\n\n", tree->info->package == NULL ? "__missing__": tree->info->package);
+  scribble_fprintf(stream, "module %s\n\n", tree->info->module == NULL ? "__missing__": tree->info->module);
 
   for (int i=0; i<tree->info->nimport; ++i) {
     scribble_fprintf(stream, "import %s", tree->info->imports[i]->name);
@@ -439,7 +439,13 @@ void scribble_fprint(FILE *stream, st_tree *tree)
             tree->info->consts[k]->value);
         break;
       case ST_CONST_BOUND:
-        scribble_fprintf(stream, " is between %u and %u;\n", tree->info->consts[k]->bounds.lbound, tree->info->consts[k]->bounds.ubound);
+        scribble_fprintf(stream, " = %u..%u;\n",
+            tree->info->consts[k]->bounds.lbound,
+            tree->info->consts[k]->bounds.ubound);
+        break;
+      case ST_CONST_INF:
+        scribble_fprintf(stream, " = %u..inf;\n",
+            tree->info->consts[k]->inf.lbound);
         break;
       default:
         scribble_fprintf(stream, "\n");
