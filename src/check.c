@@ -24,10 +24,10 @@ int scribble_check(st_tree *tree)
     return 1;
   }
 
-//  if (scribble_check_constants(tree)) {
-//    fprintf(stderr, "Error: Constants well-formedness conditions not satisfied\n");
-//    error |= 1;
-//  }
+  if (scribble_check_constants(tree)) {
+    fprintf(stderr, "Error: Constants well-formedness conditions not satisfied\n");
+    return 1;
+  }
 
   if (scribble_check_bound_indices(tree)) {
     fprintf(stderr, "Error: Index binding well-formedness conditions not satisfied\n");
