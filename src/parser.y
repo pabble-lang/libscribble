@@ -308,7 +308,8 @@ parameter_decl : TYPE parameter_name
 
 
 /** [Pabble] Role Parameters **/
-role_params_decl :                  LSQUARE range_expr RSQUARE { $$ = role_add_param(role_empty(), $2); }
+role_params_decl : /* Empty */                                 { $$ = role_empty(); }
+                 |                  LSQUARE range_expr RSQUARE { $$ = role_add_param(role_empty(), $2); }
                  | role_params_decl LSQUARE range_expr RSQUARE { $$ = role_add_param($1, $3); }
                  ;
 
@@ -478,8 +479,8 @@ local_protocol_decl : local_protocol_header local_protocol_definition
                     | local_protocol_header local_protocol_instance
                     ;
 
-local_protocol_header : LOCAL PROTOCOL protocol_name AT role_name role_params                     role_decl_list { st_tree_set_local_name(tree, $3, role_set_name($6, $5)); }
-                      | LOCAL PROTOCOL protocol_name AT role_name role_params parameter_decl_list role_decl_list { st_tree_set_local_name(tree, $3, role_set_name($6, $5)); }
+local_protocol_header : LOCAL PROTOCOL protocol_name AT role_name role_params_decl                     role_decl_list { st_tree_set_local_name(tree, $3, role_set_name($6, $5)); }
+                      | LOCAL PROTOCOL protocol_name AT role_name role_params_decl parameter_decl_list role_decl_list { st_tree_set_local_name(tree, $3, role_set_name($6, $5)); }
                       ;
 
 
@@ -523,11 +524,15 @@ local_interaction : local_send          { $$ = $1; }
 
 local_send :                          message TO role_name_       SEMICOLON { $$ = send_node($3->membs[0], $1, NULL); }
            |                          message TO role_name_param_ SEMICOLON { $$ = send_node($3->membs[0], $1, NULL); }
+           | IF role_name             message TO role_name_       SEMICOLON { $$ = send_node($5->membs[0], $3, role_set_name(role_empty(), $2)); }
            | IF role_name role_params message TO role_name_       SEMICOLON { $$ = send_node($6->membs[0], $4, role_set_name($3, $2)); }
            | IF role_name role_params message TO role_name_param_ SEMICOLON { $$ = send_node($6->membs[0], $4, role_set_name($3, $2)); }
            ;
 
-local_receive :                          message FROM role_name role_params SEMICOLON { $$ = recv_node(role_set_name($4, $3), $1, NULL); }
+local_receive :                          message FROM role_name             SEMICOLON { $$ = recv_node(role_set_name(role_empty(), $3), $1, NULL); }
+              |                          message FROM role_name role_params SEMICOLON { $$ = recv_node(role_set_name($4, $3), $1, NULL); }
+              | IF role_name             message FROM role_name             SEMICOLON { $$ = recv_node(role_set_name(role_empty(), $5), $3, role_set_name(role_empty(), $2)); }
+              | IF role_name role_params message FROM role_name             SEMICOLON { $$ = recv_node(role_set_name(role_empty(), $6), $4, role_set_name($3, $2)); }
               | IF role_name role_params message FROM role_name role_params SEMICOLON { $$ = recv_node(role_set_name($7, $6), $4, role_set_name($3, $2)); }
               ;
 

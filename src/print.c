@@ -418,7 +418,7 @@ void scribble_fprint_root(FILE *stream, st_node *node, int indent)
 
 void scribble_fprint(FILE *stream, st_tree *tree)
 {
-  scribble_fprintf(stream, "module %s\n\n", tree->info->module == NULL ? "__missing__": tree->info->module);
+  scribble_fprintf(stream, "module %s;\n\n", tree->info->module == NULL ? "__missing__": tree->info->module);
 
   for (int i=0; i<tree->info->nimport; ++i) {
     scribble_fprintf(stream, "import %s", tree->info->imports[i]->name);
