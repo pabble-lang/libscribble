@@ -42,7 +42,7 @@ comment                 "//"([^\n])*\n
 "as"                    { DEBUG_PRINT("Token: AS '%s'\n");            return AS;            }
 "at"                    { DEBUG_PRINT("Token: AT '%s'\n");            return AT;            }
 "by"                    { DEBUG_PRINT("Token: BY '%s'\n");            return BY;            }
-"catches"               { DEBUG_PRINT("Token: CATCHES '%s'\n");       return CATCHES;       } /* Non-keyword */
+"catches"               { DEBUG_PRINT("Token: CATCHES '%s'\n");       return CATCHES;       }
 "choice"                { DEBUG_PRINT("Token: CHOICE '%s'\n");        return CHOICE;        }
 "const"                 { DEBUG_PRINT("Token: CONST '%s'\n");         return CONST;         } /* Pabble */
 "continue"              { DEBUG_PRINT("Token: CONTINUE '%s'\n");      return CONTINUE;      }
@@ -52,12 +52,15 @@ comment                 "//"([^\n])*\n
 "global"                { DEBUG_PRINT("Token: GLOBAL '%s'\n");        return GLOBAL;        }
 "group"                 { DEBUG_PRINT("Token: GROUP '%s'\n");         return GROUP;         } /* Pabble */
 "if"                    { DEBUG_PRINT("Token: IF '%s'\n");            return IF;            } /* Pabble */
-"inf"                   { DEBUG_PRINT("Token: INFinity '%s'\n");      return INF;           } /* Pabble */
 "import"                { DEBUG_PRINT("Token: IMPORT '%s'\n");        return IMPORT;        }
+"in"                    { DEBUG_PRINT("Token: IN '%s'\n");            return IN;            } /* Pabble */
+"inf"                   { DEBUG_PRINT("Token: INFinity '%s'\n");      return INF;           } /* Pabble */
 "instantiates"          { DEBUG_PRINT("Token: INSTANTIATES '%s'\n");  return INSTANTIATES;  }
 "interruptible"         { DEBUG_PRINT("Token: INTERRUPTIBLE '%s'\n"); return INTERRUPTIBLE; }
+"is"                    { DEBUG_PRINT("Token: IS '%s'\n");            return IS;            } /* Pabble */
 "local"                 { DEBUG_PRINT("Token: LOCAL '%s'\n");         return LOCAL;         }
 "module"                { DEBUG_PRINT("Token: MODULE '%s'\n");        return MODULE;        }
+"oneof"                 { DEBUG_PRINT("Token: ONEOF '%s'\n");         return ONEOF;         } /* Pabble */
 "or"                    { DEBUG_PRINT("Token: OR '%s'\n");            return OR;            }
 "par"                   { DEBUG_PRINT("Token: PAR '%s'\n");           return PAR;           }
 "protocol"              { DEBUG_PRINT("Token: PROTOCOL '%s'\n");      return PROTOCOL;      }
@@ -65,7 +68,7 @@ comment                 "//"([^\n])*\n
 "rec"                   { DEBUG_PRINT("Token: REC '%s'\n");           return REC;           }
 "role"                  { DEBUG_PRINT("Token: ROLE '%s'\n");          return ROLE;          }
 "sig"                   { DEBUG_PRINT("Token: SIG '%s'\n");           return SIG;           }
-"throws"                { DEBUG_PRINT("Tokens: THROWS '%s'\n");       return THROWS;        } /* Non-keyword */
+"throws"                { DEBUG_PRINT("Tokens: THROWS '%s'\n");       return THROWS;        }
 "to"                    { DEBUG_PRINT("Token: TO '%s'\n");            return TO;            }
 "type"                  { DEBUG_PRINT("Token: TYPE '%s'\n");          return TYPE;          }
 "with"                  { DEBUG_PRINT("Token: WITH '%s'\n");          return WITH;          }

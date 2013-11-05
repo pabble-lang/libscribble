@@ -208,6 +208,32 @@ static st_node *allreduce_node(st_node_msgsig_t msgsig)
   return node;
 }
 
+static st_node *ifblk_node(st_role *role, st_node *body)
+{
+  st_node *node = st_node_init((st_node *)malloc(sizeof(st_node)), ST_NODE_IFBLK);
+  node->ifblk->cond = st_node_copy_role(role);
+
+  node->nchild = 1;
+  node->children = (st_node **)calloc(sizeof(st_node *), node->nchild);
+  node->children[0] = body;
+
+  return node;
+}
+
+static st_node *oneof_node(char *bindvar, st_expr *rngexpr, st_node *body)
+{
+  st_node *node = st_node_init((st_node *)malloc(sizeof(st_node)), ST_NODE_ONEOF);
+  node->oneof->range->bindvar = strdup(bindvar);
+  node->oneof->range->from = st_expr_copy(rngexpr->rng->from);
+  node->oneof->range->to = st_expr_copy(rngexpr->rng->to);
+
+  node->nchild = 1;
+  node->children = (st_node **)calloc(sizeof(st_node *), node->nchild);
+  node->children[0] = body;
+
+  return node;
+}
+
 static st_node *interaction_block(st_nodes *node_list)
 {
   st_node *node = st_node_init((st_node *)malloc(sizeof(st_node)), ST_NODE_ROOT);
