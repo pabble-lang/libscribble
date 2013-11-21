@@ -233,11 +233,9 @@ const_decls  : /* Empty */
              | const_decls const_decl
              ;
 
-const_decl : CONST IDENTIFIER EQUAL DIGITS                           { register_constant(tree, $2, $4); }
-           | CONST IDENTIFIER EQUAL DIGITS                 SEMICOLON { register_constant(tree, $2, $4); }
-           | CONST IDENTIFIER IS BETWEEN DIGITS AND DIGITS           { register_constant_bounds(tree, $2, $5, $7); }
-           | CONST IDENTIFIER IS BETWEEN DIGITS AND DIGITS SEMICOLON { register_constant_bounds(tree, $2, $5, $7); }
-           | RANGE IDENTIFIER EQUAL DIGITS NUMRANGE DIGITS           { register_range($2, $4, $6); /* w/o tree */ }
+const_decl : CONST IDENTIFIER EQUAL DIGITS                 SEMICOLON { register_constant(tree, $2, $4); }
+           | CONST IDENTIFIER EQUAL DIGITS NUMRANGE DIGITS SEMICOLON { register_constant_bounds(tree, $2, $4, $6); }
+           | CONST IDENTIFIER EQUAL DIGITS NUMRANGE INF    SEMICOLON { register_constant_bounds_inf(tree, $2, $4); }
            | RANGE IDENTIFIER EQUAL DIGITS NUMRANGE DIGITS SEMICOLON { register_range($2, $4, $6); /* w/o tree */ }
            ;
 

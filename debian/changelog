@@ -1,3 +1,9 @@
+libscribble (1.3.2~scribble0.3+pabble) unstable; urgency=low
+
+  * Quickfix: Parser missed out rule for inf
+
+ -- Nicholas Ng <nickng@doc.ic.ac.uk>  Thu, 21 Nov 2013 21:11:00 +0000
+
 libscribble (1.3.1~scribble0.3+pabble) unstable; urgency=low
 
   * Projection, printing support for dynamic session types
