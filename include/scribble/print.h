@@ -37,6 +37,8 @@ void scribble_fprint_recur(FILE *stream, st_node *node, int indent);
 void scribble_fprint_continue(FILE *stream, st_node *node, int indent);
 void scribble_fprint_for(FILE *stream, st_node *node, int indent);
 void scribble_fprint_allreduce(FILE *stream, st_node *node, int indent);
+void scribble_fprint_oneof(FILE *strean, st_node *node, int indent);
+void scribble_fprint_ifblk(FILE *strean, st_node *node, int indent);
 void scribble_fprint_node(FILE *stream, st_node *node, int indent);
 
 /**

@@ -48,7 +48,7 @@ void yyerror(st_tree *tree, const char *s)
 %error-verbose
 
     /* Keywords */
-%token ALLREDUCE AND AS AT BETWEEN BY CATCHES CHOICE CONST CONTINUE DO FOREACH FROM GLOBAL GROUP IF IMPORT IN INF INSTANTIATES INTERRUPTIBLE IS LOCAL MODULE ONEOF OR PAR PROTOCOL RANGE REC ROLE SIG THROWS TO TYPE WITH
+%token ALLREDUCE AND AS AT BETWEEN BY CATCHES CHOICE CONST CONTINUE DO EXCEPT FOREACH FROM GLOBAL GROUP IF IMPORT IN INF INSTANTIATES INTERRUPTIBLE IS LOCAL MODULE ONEOF OR PAR PROTOCOL RANGE REC REPEAT ROLE SIG THROWS TO TYPE WITH
 
     /* Symbols */
 %token NUMRANGE SHL SHR LPAREN RPAREN LBRACE RBRACE LSQUARE RSQUARE LANGLE RANGLE COMMA COLON SEMICOLON EQUAL PLUS MINUS MULTIPLY DIVIDE MODULO DOT
@@ -285,7 +285,7 @@ global_protocol_header : GLOBAL PROTOCOL protocol_name                     role_
                        | GLOBAL PROTOCOL protocol_name parameter_decl_list role_decl_list { st_tree_set_name(tree, $3); }
                        ;
 
-role_decl_list : LPAREN role_decls COMMA group_decls RPAREN /* Pabble */
+role_decl_list : LPAREN role_decls group_decls RPAREN /* Pabble */
                ;
 
 role_decls :                  role_decl
@@ -328,7 +328,7 @@ role_params_ : /* Empty */                             { $$ = role_empty(); }
 
 /** [Pabble] Group Declarations **/
 
-group_decls :                   group_decl
+group_decls :
             | group_decls COMMA group_decl
             ;
 
@@ -469,7 +469,8 @@ global_do : DO                  member_name               role_instantiation_lis
 
 /** [Pabble] For-each **/
 
-global_foreach : FOREACH LPAREN bind_expr RPAREN global_interaction_block { $$ = foreach_node($3, $5); }
+global_foreach : FOREACH LPAREN bind_expr                   RPAREN global_interaction_block { $$ = foreach_node($3, $5); }
+               | FOREACH LPAREN bind_expr EXCEPT IDENTIFIER RPAREN global_interaction_block { $$ = foreach_except_node($3, $5, $7); }
                ;
 
 
@@ -481,7 +482,9 @@ global_allreduce : ALLREDUCE message_signature { $$ = allreduce_node($2); }
 
 /** [Pabble] One-of **/
 
-global_oneof : ONEOF LPAREN IDENTIFIER IN range_expr RPAREN global_interaction_block { $$ = oneof_node($3, $5, $7); }
+global_oneof :        ONEOF LPAREN IDENTIFIER LSQUARE IDENTIFIER IN range_expr RSQUARE RPAREN global_interaction_block { $$ = oneof_node($3, $5, $7, $10); }
+             | REPEAT ONEOF LPAREN IDENTIFIER LSQUARE IDENTIFIER IN range_expr RSQUARE RPAREN global_interaction_block { $$ = repeat_oneof_node($4, $6, $8, $11); }
+
              ;
 
 
@@ -626,7 +629,7 @@ local_ifblock : IF role_name role_params local_interaction_block { $$ = ifblk_no
 
 /** [Pabble] One-of **/
 
-local_oneof : ONEOF LPAREN IDENTIFIER IN range_expr RPAREN global_interaction_block { $$ = oneof_node($3, $5, $7); }
+local_oneof : ONEOF LPAREN IDENTIFIER LSQUARE IDENTIFIER IN range_expr RSQUARE RPAREN global_interaction_block { $$ = oneof_node($3, $5, $7, $10); }
             ;
 
 %%

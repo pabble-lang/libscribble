@@ -335,11 +335,13 @@ st_node *scribble_project_continue(st_tree *tree, st_node *node, char *projectro
 st_node *scribble_project_foreach(st_tree *tree, st_node *node, char *projectrole, st_expr_list *env)
 {
   assert(tree != NULL && node != NULL && node->type == ST_NODE_FOR);
+
   st_node *local = st_node_init((st_node *)malloc(sizeof(st_node)), ST_NODE_FOR);
   local->forloop->range = (st_rng_expr_t *)malloc(sizeof(st_rng_expr_t));
   local->forloop->range->bindvar = strdup(node->forloop->range->bindvar);
   local->forloop->range->from = st_expr_copy(node->forloop->range->from);
   local->forloop->range->to = st_expr_copy(node->forloop->range->to);
+  local->forloop->except = strdup(node->forloop->except);
 
   if (env->count == 0) {
     env->exprs = (st_expr **)malloc(sizeof(st_expr *) * (env->count+1));
@@ -368,12 +370,161 @@ st_node *scribble_project_foreach(st_tree *tree, st_node *node, char *projectrol
   return local;
 }
 
-
 st_node *scribble_project_allreduce(st_tree *tree, st_node *node, char *projectrole, st_expr_list *env)
 {
   assert(tree != NULL && node != NULL && node->type == ST_NODE_ALLREDUCE);
   st_node *local = st_node_init((st_node *)malloc(sizeof(st_node)), ST_NODE_ALLREDUCE);
   local->allreduce->msgsig = node->allreduce->msgsig;
+  return local;
+}
+
+st_node *scribble_project_ifblk_simplify(st_tree *tree, st_node *node, char *projectrole, st_expr *expr, st_expr_list *env)
+{
+  assert(tree != NULL && node != NULL);
+
+  st_node *local = NULL;
+  st_node *local_child = NULL;
+  if ((node->type == ST_NODE_SEND || node->type == ST_NODE_RECV) && node->interaction->msg_cond != NULL) {
+    if (node->interaction->msg_cond->param[0]->type == expr->type) {
+      local = st_node_init((st_node *)malloc(sizeof(st_node)), node->type);
+      if (node->interaction->from != NULL) {
+        local->interaction->from = st_node_copy_role(node->interaction->from);
+      }
+      local->interaction->nto = node->interaction->nto;
+      if (node->interaction->to != NULL) {
+        local->interaction->to = (st_role **)calloc(local->interaction->nto, sizeof(st_role *));
+        local->interaction->to[0] = st_node_copy_role(node->interaction->to[0]);
+      }
+      local->interaction->msgsig.op = strdup(node->interaction->msgsig.op);
+      local->interaction->msgsig.payload = strdup(node->interaction->msgsig.payload);
+      local->interaction->msg_cond = NULL;
+      return local; // Return statement without msg_cond
+    } else {
+      return NULL; // Return NULL (ie. ignore me)
+    }
+  } else { // Other types of statements
+    local = st_node_init((st_node *)malloc(sizeof(st_node)), node->type);
+    switch (local->type) {
+      case ST_NODE_ROOT:
+        break;
+      case ST_NODE_CHOICE:
+        local->choice->at = (st_role *)malloc(sizeof(st_role));
+        local->choice->at = st_node_copy_role(node->choice->at);
+        break;
+      case ST_NODE_PARALLEL:
+        break;
+      case ST_NODE_RECUR:
+        local->recur->label = (char *)calloc(sizeof(char), strlen(node->recur->label)+1);
+        local->recur->label = strdup(node->recur->label);
+        break;
+      case ST_NODE_CONTINUE:
+        local->cont->label = strdup(node->cont->label);
+        break;
+      case ST_NODE_FOR:
+        if (expr->type == ST_EXPR_TYPE_VAR && node->forloop->except != NULL && strcmp(node->forloop->except, expr->var) == 0) return NULL; // We are projecting for [i]
+        local->forloop->range = (st_rng_expr_t *)malloc(sizeof(st_rng_expr_t));
+        local->forloop->range->bindvar = strdup(node->forloop->range->bindvar);
+        local->forloop->range->from = st_expr_copy(node->forloop->range->from);
+        local->forloop->range->to = st_expr_copy(node->forloop->range->to);
+        local->forloop->except = strdup(node->forloop->except);
+        break;
+      case ST_NODE_ALLREDUCE:
+        local->allreduce->msgsig = node->allreduce->msgsig;
+        break;
+      case ST_NODE_ONEOF:
+        local->oneof->role = strdup(node->oneof->role);
+        local->oneof->range = (st_rng_expr_t *)malloc(sizeof(st_rng_expr_t));
+        local->oneof->range->bindvar = strdup(node->oneof->range->bindvar);
+        local->oneof->range->from = st_expr_copy(node->oneof->range->from);
+        local->oneof->range->to = st_expr_copy(node->oneof->range->to);
+        break;
+      case ST_NODE_IFBLK:
+        local->ifblk->cond = st_node_copy_role(node->ifblk->cond);
+        break;
+      default:
+        fprintf(stderr, "%s: %d %s Cannot handle node type %d\n", __FILE__, __LINE__, __FUNCTION__, node->type);
+        assert(0);
+    }
+    for (int i=0; i<node->nchild; i++) {
+      local_child = scribble_project_ifblk_simplify(tree, node->children[i], projectrole, expr, env);
+      if (local_child != NULL) st_node_append(local, local_child);
+    }
+  }
+  return local;
+}
+
+st_node *scribble_project_oneof(st_tree *tree, st_node *node, char *projectrole, st_expr_list *env)
+{
+  assert(tree != NULL && node != NULL && node->type == ST_NODE_ONEOF);
+
+  if (strcmp(projectrole, node->oneof->role) != 0) return NULL;
+
+  st_node *local = st_node_init((st_node *)malloc(sizeof(st_node)), ST_NODE_ROOT);
+  st_node *temp = st_node_init((st_node *)malloc(sizeof(st_node)), ST_NODE_ROOT);
+
+  // if-block for the coordinator
+  st_node *coord = st_node_init((st_node *)malloc(sizeof(st_node)), ST_NODE_IFBLK);
+  coord->ifblk->cond = (st_role *)malloc(sizeof(st_role));
+  coord->ifblk->cond->name = strdup(node->oneof->role);
+  coord->ifblk->cond->dimen = 1;
+  coord->ifblk->cond->param = (st_expr **)malloc(sizeof(st_expr *));
+  coord->ifblk->cond->param[0] = (st_expr *)malloc(sizeof(st_expr));
+  coord->ifblk->cond->param[0]->type = ST_EXPR_TYPE_CONST;
+  coord->ifblk->cond->param[0]->num = 0; // Infer it later
+
+  // Try to infer it..
+  if (node->children[0]->type == ST_NODE_SENDRECV) {
+    coord->ifblk->cond->param[0] = st_expr_copy(node->children[0]->interaction->to[0]->param[0]);
+  } else if (node->children[0]->type == ST_NODE_ROOT && node->children[0]->nchild > 1 && node->children[0]->children[0]->type == ST_NODE_SENDRECV) {
+    coord->ifblk->cond->param[0] = st_expr_copy(node->children[0]->children[0]->interaction->to[0]->param[0]);
+  } else {
+    // XXX Should also go into ROOT/REC and infer from there.
+    fprintf(stderr, "Cannot find coordinator role, using [0] as default\n");
+  }
+
+  // Copy over the oneof statement as child if-block
+  st_node *coord_oneof = st_node_init((st_node *)malloc(sizeof(st_node)), ST_NODE_ONEOF);
+  coord_oneof->oneof->role = strdup(node->oneof->role);
+  coord_oneof->oneof->range = (st_rng_expr_t *)malloc(sizeof(st_rng_expr_t));
+  coord_oneof->oneof->range->bindvar = strdup(node->oneof->range->bindvar);
+  coord_oneof->oneof->range->from = st_expr_copy(node->oneof->range->from);
+  coord_oneof->oneof->range->to = st_expr_copy(node->oneof->range->to);
+  coord_oneof->oneof->unordered = node->oneof->unordered;
+  if (coord_oneof != NULL) st_node_append(coord, st_node_append(st_node_init((st_node *)malloc(sizeof(st_node)), ST_NODE_ROOT), coord_oneof));
+  if (coord != NULL) st_node_append(local, coord);
+
+  // if-block for the workers
+  st_node *worker = st_node_init((st_node *)malloc(sizeof(st_node)), ST_NODE_IFBLK);
+  worker->ifblk->cond = (st_role *)malloc(sizeof(st_role));
+  worker->ifblk->cond->name = strdup(node->oneof->role);
+  worker->ifblk->cond->dimen = 1;
+  worker->ifblk->cond->param = (st_expr **)malloc(sizeof(st_expr));
+  worker->ifblk->cond->param[0] = (st_expr *)malloc(sizeof(st_expr));
+  worker->ifblk->cond->param[0]->type = ST_EXPR_TYPE_RNG;
+  worker->ifblk->cond->param[0]->rng = (st_rng_expr_t *)malloc(sizeof(st_rng_expr_t));
+  worker->ifblk->cond->param[0]->rng->bindvar = strdup(node->oneof->range->bindvar);
+  worker->ifblk->cond->param[0]->rng->from = st_expr_copy(node->oneof->range->from);
+  worker->ifblk->cond->param[0]->rng->to = st_expr_copy(node->oneof->range->to);
+  if (worker != NULL) st_node_append(local, worker);
+
+  st_expr *worker_expr = NULL;
+  switch (worker->ifblk->cond->param[0]->type) {
+    case ST_EXPR_TYPE_RNG:
+      worker_expr = (st_expr *)malloc(sizeof(st_expr));
+      worker_expr->type = ST_EXPR_TYPE_VAR;
+      worker_expr->var = strdup(worker->ifblk->cond->param[0]->rng->bindvar);
+      break;
+    default:
+      worker_expr = worker->ifblk->cond->param[0];
+  }
+
+  // Go into children
+  for (int i=0; i<node->nchild; i++) {
+    temp = scribble_project_node(tree, node->children[i], projectrole, env);
+    st_node_append(coord_oneof, scribble_project_ifblk_simplify(tree, temp, projectrole, coord->ifblk->cond->param[0], env));
+    st_node_append(worker, scribble_project_ifblk_simplify(tree, temp, projectrole, worker_expr, env));
+  }
+
   return local;
 }
 
@@ -391,6 +542,8 @@ st_node *scribble_project_node(st_tree *tree, st_node *node, char *projectrole, 
     case ST_NODE_CONTINUE:  return scribble_project_continue(tree, node, projectrole, env);
     case ST_NODE_FOR:       return scribble_project_foreach(tree, node, projectrole, env);
     case ST_NODE_ALLREDUCE: return scribble_project_allreduce(tree, node, projectrole, env);
+    case ST_NODE_ONEOF:     return scribble_project_oneof(tree, node, projectrole, env);
+    case ST_NODE_IFBLK:
     case ST_NODE_SEND:
     case ST_NODE_RECV:
       fprintf(stderr, "%s:%d %s Invalid node type: %d\n", __FILE__, __LINE__, __FUNCTION__, node->type);

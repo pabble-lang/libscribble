@@ -47,25 +47,27 @@ comment                 "//"([^\n])*\n
 "const"                 { DEBUG_PRINT("Token: CONST '%s'\n");         return CONST;         } /* Pabble */
 "continue"              { DEBUG_PRINT("Token: CONTINUE '%s'\n");      return CONTINUE;      }
 "do"                    { DEBUG_PRINT("Token: DO '%s'\n");            return DO;            }
+"except"                { DEBUG_PRINT("Token: EXCEPT '%s'\n");        return EXCEPT;        } /* Pabble dynamic */
 "foreach"               { DEBUG_PRINT("Token: FOREACH '%s'\n");       return FOREACH;       } /* Pabble */
 "from"                  { DEBUG_PRINT("Token: FROM '%s'\n");          return FROM;          }
 "global"                { DEBUG_PRINT("Token: GLOBAL '%s'\n");        return GLOBAL;        }
 "group"                 { DEBUG_PRINT("Token: GROUP '%s'\n");         return GROUP;         } /* Pabble */
 "if"                    { DEBUG_PRINT("Token: IF '%s'\n");            return IF;            } /* Pabble */
 "import"                { DEBUG_PRINT("Token: IMPORT '%s'\n");        return IMPORT;        }
-"in"                    { DEBUG_PRINT("Token: IN '%s'\n");            return IN;            } /* Pabble */
+"in"                    { DEBUG_PRINT("Token: IN '%s'\n");            return IN;            } /* Pabble dynamic */
 "inf"                   { DEBUG_PRINT("Token: INFinity '%s'\n");      return INF;           } /* Pabble */
 "instantiates"          { DEBUG_PRINT("Token: INSTANTIATES '%s'\n");  return INSTANTIATES;  }
 "interruptible"         { DEBUG_PRINT("Token: INTERRUPTIBLE '%s'\n"); return INTERRUPTIBLE; }
 "is"                    { DEBUG_PRINT("Token: IS '%s'\n");            return IS;            } /* Pabble */
 "local"                 { DEBUG_PRINT("Token: LOCAL '%s'\n");         return LOCAL;         }
 "module"                { DEBUG_PRINT("Token: MODULE '%s'\n");        return MODULE;        }
-"oneof"                 { DEBUG_PRINT("Token: ONEOF '%s'\n");         return ONEOF;         } /* Pabble */
+"oneof"                 { DEBUG_PRINT("Token: ONEOF '%s'\n");         return ONEOF;         } /* Pabble dynamic */
 "or"                    { DEBUG_PRINT("Token: OR '%s'\n");            return OR;            }
 "par"                   { DEBUG_PRINT("Token: PAR '%s'\n");           return PAR;           }
 "protocol"              { DEBUG_PRINT("Token: PROTOCOL '%s'\n");      return PROTOCOL;      }
 "range"                 { DEBUG_PRINT("Token: RANGE '%s'\n");         return RANGE;         } /* Pabble */
 "rec"                   { DEBUG_PRINT("Token: REC '%s'\n");           return REC;           }
+"repeat"                { DEBUG_PRINT("Token: REPEAT '%s'\n");        return REPEAT;        } /* Pabble dynamic */
 "role"                  { DEBUG_PRINT("Token: ROLE '%s'\n");          return ROLE;          }
 "sig"                   { DEBUG_PRINT("Token: SIG '%s'\n");           return SIG;           }
 "throws"                { DEBUG_PRINT("Tokens: THROWS '%s'\n");       return THROWS;        }

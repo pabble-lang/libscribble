@@ -18,7 +18,7 @@ Description: Scribble support library for session types programming (dev)
 Package: libscribble
 Section: libs
 Architecture: amd64
-Depends: ${shlibs:Depends}, ${misc:Depends}, libsesstype (= 1.4.0)
+Depends: ${shlibs:Depends}, ${misc:Depends}, libsesstype (= 1.4.1)
 Description: Scribble support library for session types programming
  Shared libraries for programming with Session Types in C.
  This is a library for Scribble protocol description language support and tools, part of Session C programming framework. See http://www.doc.ic.ac.uk/~cn06/sessionc for details.
