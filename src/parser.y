@@ -609,7 +609,8 @@ local_do : DO scope_name COLON member_name               role_instantiation_list
 
 /** [Pabble] For-each **/
 
-local_foreach : FOREACH LPAREN bind_expr RPAREN local_interaction_block { $$ = foreach_node($3, $5); }
+local_foreach : FOREACH LPAREN bind_expr                   RPAREN local_interaction_block { $$ = foreach_node($3, $5); }
+              | FOREACH LPAREN bind_expr EXCEPT IDENTIFIER RPAREN local_interaction_block { $$ = foreach_except_node($3, $5, $7); }
               ;
 
 
@@ -627,7 +628,7 @@ local_ifblock : IF role_name role_params local_interaction_block { $$ = ifblk_no
 
 /** [Pabble] One-of **/
 
-local_oneof : ONEOF LPAREN IDENTIFIER LSQUARE IDENTIFIER IN range_expr RSQUARE RPAREN global_interaction_block { $$ = oneof_node($3, $5, $7, $10); }
+local_oneof : ONEOF LPAREN IDENTIFIER LSQUARE IDENTIFIER IN range_expr RSQUARE RPAREN local_interaction_block { $$ = oneof_node($3, $5, $7, $10); }
             ;
 
 %%

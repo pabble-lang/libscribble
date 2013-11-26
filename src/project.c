@@ -20,6 +20,9 @@ st_node *scribble_project_root(st_tree *tree, st_node *node, char *projectrole, 
 {
   assert(tree != NULL && node != NULL && node->type == ST_NODE_ROOT);
   st_node *local = st_node_init((st_node *)malloc(sizeof(st_node)), ST_NODE_ROOT);
+#ifdef __DEBUG__
+  fprintf(stderr, "INFO/%s:%d %s entry\n", __FILE__, __LINE__, __FUNCTION__);
+#endif
 
   int i = 0;
   st_node *child_node = NULL;
@@ -39,6 +42,9 @@ st_node *scribble_project_message(st_tree *tree, st_node *node, char *projectrol
   assert(tree != NULL && node != NULL && node->type == ST_NODE_SENDRECV);
   assert(node->interaction->nto > 0 && node->interaction->to[0] != NULL && node->interaction->from != NULL);
   assert(strcmp(projectrole, tree->info->myrole->name) == 0);
+#ifdef __DEBUG__
+  fprintf(stderr, "INFO/%s:%d %s entry\n", __FILE__, __LINE__, __FUNCTION__);
+#endif
 
   st_node *local;
   st_node *root = st_node_init((st_node *)malloc(sizeof(st_node)), ST_NODE_ROOT);
@@ -59,6 +65,9 @@ st_node *scribble_project_message(st_tree *tree, st_node *node, char *projectrol
 
 
   if (tree->info->myrole->dimen == 0) { // Rule 1-2: Non-parametric roles
+#ifdef __DEBUG__
+    fprintf(stderr, "INFO/Rule 1-2: Non-parametric rules\n");
+#endif
 
     if (strcmp(to->name, projectrole) == 0) { // Rule 1
 #ifdef __DEBUG__
@@ -90,6 +99,9 @@ st_node *scribble_project_message(st_tree *tree, st_node *node, char *projectrol
     }
 
   } else { // Rule 3-8: Parametric roles
+#ifdef __DEBUG__
+    fprintf(stderr, "INFO/Rule 3-8: parametric rules\n");
+#endif
 
     if (!is_relative && strcmp(to->name, projectrole) == 0) { // Rule 3
 #ifdef __DEBUG__
@@ -341,7 +353,7 @@ st_node *scribble_project_foreach(st_tree *tree, st_node *node, char *projectrol
   local->forloop->range->bindvar = strdup(node->forloop->range->bindvar);
   local->forloop->range->from = st_expr_copy(node->forloop->range->from);
   local->forloop->range->to = st_expr_copy(node->forloop->range->to);
-  local->forloop->except = strdup(node->forloop->except);
+  local->forloop->except = node->forloop->except == NULL ? NULL : strdup(node->forloop->except);
 
   if (env->count == 0) {
     env->exprs = (st_expr **)malloc(sizeof(st_expr *) * (env->count+1));

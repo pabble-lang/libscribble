@@ -1,3 +1,11 @@
+libscribble (1.3.3~scribble0.3+pabble) unstable; urgency=low
+
+  * Quickfix: Printing of oneof misses out role name
+  * Fix local protocol for oneof with correct syntax
+  * Minor sytnax fix
+
+ -- Nicholas Ng <nickng@doc.ic.ac.uk>  Thu, 23 Nov 2013 16:00:09 +0000
+
 libscribble (1.3.2~scribble0.3+pabble) unstable; urgency=low
 
   * Quickfix: Parser missed out rule for inf

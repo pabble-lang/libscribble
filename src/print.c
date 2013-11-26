@@ -393,11 +393,11 @@ void scribble_fprint_oneof(FILE *stream, st_node *node, int indent)
   for (int i=0; i<indent; ++i) scribble_fprintf(stream, "  ");
 
   if (node->oneof->unordered) scribble_fprintf(stream, "repeat ");
-  scribble_fprintf(stream, "oneof (%s in ", node->oneof->range->bindvar);
+  scribble_fprintf(stream, "oneof (%s[%s in ", node->oneof->role, node->oneof->range->bindvar);
   scribble_fprint_expr(stream, node->oneof->range->from);
   scribble_fprintf(stream, "..");
   scribble_fprint_expr(stream, node->oneof->range->to);
-  scribble_fprintf(stream, ") %s", node->marked ? " /* HERE */" : "");
+  scribble_fprintf(stream, "]) %s", node->marked ? " /* HERE */" : "");
   for (int child=0; child<node->nchild; ++child) {
     scribble_fprint_node(stream, node->children[child], indent+1);
   }
@@ -451,7 +451,7 @@ void scribble_fprint(FILE *stream, st_tree *tree)
     scribble_fprintf(stream, "const %s", tree->info->consts[k]->name);
     switch (tree->info->consts[k]->type) {
       case ST_CONST_VALUE:
-        scribble_fprintf(stream, " = %u\n",
+        scribble_fprintf(stream, " = %u;\n",
             tree->info->consts[k]->value);
         break;
       case ST_CONST_BOUND:
