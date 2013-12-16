@@ -359,6 +359,7 @@ void scribble_fprint_continue(FILE *stream, st_node *node, int indent)
   scribble_fprintf(stream, "continue %s;%s\n", node->cont->label, node->marked ? " // <- HERE" : "");
 }
 
+
 void scribble_fprint_for(FILE *stream, st_node *node, int indent)
 {
   assert(node != NULL && node->type == ST_NODE_FOR);
@@ -377,6 +378,7 @@ void scribble_fprint_for(FILE *stream, st_node *node, int indent)
   scribble_fprintf(stream, "}\n");
 }
 
+
 void scribble_fprint_allreduce(FILE *stream, st_node *node, int indent)
 {
   assert(node != NULL && node->type == ST_NODE_ALLREDUCE);
@@ -386,6 +388,7 @@ void scribble_fprint_allreduce(FILE *stream, st_node *node, int indent)
       node->interaction->msgsig.payload == NULL? "" : node->interaction->msgsig.payload,
       node->marked ? " /* HERE */" : "");
 }
+
 
 void scribble_fprint_oneof(FILE *stream, st_node *node, int indent)
 {
@@ -404,6 +407,7 @@ void scribble_fprint_oneof(FILE *stream, st_node *node, int indent)
   scribble_fprintf(stream, "\n");
 }
 
+
 void scribble_fprint_ifblk(FILE *stream, st_node *node, int indent)
 {
   assert(node != NULL && node->type == ST_NODE_IFBLK);
@@ -417,6 +421,7 @@ void scribble_fprint_ifblk(FILE *stream, st_node *node, int indent)
   }
   scribble_fprintf(stream, "\n");
 }
+
 
 void scribble_fprint_root(FILE *stream, st_node *node, int indent)
 {

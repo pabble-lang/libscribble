@@ -13,6 +13,9 @@
 #include <string.h>
 
 #include <sesstype/st_node.h>
+#ifdef __DEBUG__
+#include <sesstype/st_node_print.h>
+#endif
 #include "scribble/check.h"
 
 #define NO_INDEX -1
@@ -104,7 +107,7 @@ static int check_node(st_node *node, env_t *env, unsigned int level)
 
 #ifdef __DEBUG__
   fprintf(stderr, "%s:%d:%s(node, vars[], level=%d)\n", __FILE__, __LINE__, __FUNCTION__, level);
-  st_node_print(node, 0);
+  st_node_fprint(stderr, node, 0);
 #endif
 
   env_t *this_env = NULL;

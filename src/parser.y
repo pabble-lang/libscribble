@@ -317,20 +317,22 @@ role_param_decls : /* Empty */                                 { $$ = role_empty
 role_params : /* Empty */                            { $$ = role_empty(); }
             | role_params LSQUARE bind_expr  RSQUARE { $$ = role_add_param($1, $3); }
             | role_params LSQUARE arith_expr RSQUARE { $$ = role_add_param($1, $3); }
+            | role_params LSQUARE range_expr RSQUARE { $$ = role_add_param($1, $3); }
             ;
 
 role_params_ : /* Empty */                             { $$ = role_empty(); }
              | role_params_ LSQUARE arith_expr RSQUARE { $$ = role_add_param($1, $3); }
+             | role_params_ LSQUARE range_expr RSQUARE { $$ = role_add_param($1, $3); }
              ;
 
 
 /** [Pabble] Group Declarations **/
 
 group_decls :
-            | group_decls COMMA group_decl
+            | group_decl group_decls 
             ;
 
-group_decl : GROUP group_name EQUAL LBRACE roles RBRACE { st_tree_add_role_group(tree, role_group_set_name($5, $2)); }
+group_decl : COMMA GROUP group_name EQUAL LBRACE roles RBRACE { st_tree_add_role_group(tree, role_group_set_name($6, $3)); }
            ;
 
 roles :       role_name role_param_decls { $$ = role_group_add_role((st_role_group *)malloc(sizeof(st_role_group)), role_set_name($2, $1)); }

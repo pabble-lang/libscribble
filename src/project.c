@@ -13,6 +13,7 @@
 #include <assert.h>
 
 #include <sesstype/st_node.h>
+#include <sesstype/st_node_print.h>
 #include "scribble/project.h"
 
 
@@ -43,17 +44,20 @@ st_node *scribble_project_message(st_tree *tree, st_node *node, char *projectrol
   assert(node->interaction->nto > 0 && node->interaction->to[0] != NULL && node->interaction->from != NULL);
   assert(strcmp(projectrole, tree->info->myrole->name) == 0);
 #ifdef __DEBUG__
-  fprintf(stderr, "INFO/%s:%d %s entry\n", __FILE__, __LINE__, __FUNCTION__);
+  fprintf(stderr, "INFO/%s:%d %s {projectrole: %s} entry\n", __FILE__, __LINE__, __FUNCTION__, projectrole);
+  st_node_fprint(stderr, node, 0);
 #endif
 
   st_node *local;
   st_node *root = st_node_init((st_node *)malloc(sizeof(st_node)), ST_NODE_ROOT);
 
-  st_role *to   = node->interaction->to[0];
+  st_role *to   = node->interaction->to[0]; // XXX We are considering only to[0]
   st_role *from = node->interaction->from;
 
-  int to_is_group = 0;
-  int from_is_group = 0;
+  int to_is_group = 0; // Group declared in protocol parameters eg. group X={...}
+  int to_is_anon_group = 0; // Group declared inline (no name) eg. W[1..N]
+  int from_is_group = 0; // Group declared in protocol parameters eg. group X={...}
+  int from_is_anon_group = 0; // Group declared inline (no name) eg. W[1..N]
   int is_relative = 0;
 
   // Check if the names are groups names
@@ -61,7 +65,11 @@ st_node *scribble_project_message(st_tree *tree, st_node *node, char *projectrol
     to_is_group   |= (strcmp(to->name, tree->info->groups[group]->name)   == 0);
     from_is_group |= (strcmp(from->name, tree->info->groups[group]->name) == 0);
   }
-  is_relative = (from->dimen > 0 && from->param[0]->type == ST_EXPR_TYPE_RNG);
+  is_relative = (from->dimen > 0 && from->param[0]->type == ST_EXPR_TYPE_RNG && strcmp(from->param[0]->rng->bindvar, "_") != 0);
+
+  // Check if the names are (anonymous) group
+  to_is_group   |= to_is_anon_group   = to->dimen == 1 && to->param[0]->type == ST_EXPR_TYPE_RNG && !strcmp(to->param[0]->rng->bindvar, "_");
+  from_is_group |= from_is_anon_group = from->dimen == 1 && from->param[0]->type == ST_EXPR_TYPE_RNG && !strcmp(from->param[0]->rng->bindvar, "_");
 
 
   if (tree->info->myrole->dimen == 0) { // Rule 1-2: Non-parametric roles
@@ -103,7 +111,7 @@ st_node *scribble_project_message(st_tree *tree, st_node *node, char *projectrol
     fprintf(stderr, "INFO/Rule 3-8: parametric rules\n");
 #endif
 
-    if (!is_relative && strcmp(to->name, projectrole) == 0) { // Rule 3
+    if (!is_relative && !to_is_group && strcmp(to->name, projectrole) == 0) { // Rule 3
 #ifdef __DEBUG__
       fprintf(stderr, "INFO/Triggers Rule 3: Parametric participant\n");
 #endif
@@ -117,7 +125,7 @@ st_node *scribble_project_message(st_tree *tree, st_node *node, char *projectrol
       st_node_append(root, local);
     }
 
-    if (!is_relative && strcmp(from->name, projectrole) == 0) { // Rule 4
+    if (!is_relative && !from_is_group && strcmp(from->name, projectrole) == 0) { // Rule 4
 #ifdef __DEBUG__
       fprintf(stderr, "INFO/Triggers Rule 4: Parametric participant\n");
 #endif
@@ -158,21 +166,43 @@ st_node *scribble_project_message(st_tree *tree, st_node *node, char *projectrol
 
       if (to_is_group) { // Rule 6 Group
 #ifdef __DEBUG__
-        fprintf(stderr, "INFO/Triggers Rule 6: Group\n");
+        fprintf(stderr, "INFO/Rule 6: Group\n");
 #endif
-        for (int group=0; group<tree->info->ngroup; group++) {
-          if (strcmp(to->name, tree->info->groups[group]->name) == 0) {
-            for (int member=0; member<tree->info->groups[group]->nmemb; member++) {
-              if (strcmp(tree->info->groups[group]->membs[member]->name, projectrole) == 0) {
-                local = st_node_init((st_node *)malloc(sizeof(st_node)), ST_NODE_RECV);
-                local->interaction->from = st_node_copy_role(from);
-                local->interaction->nto = 0;
-                local->interaction->to = NULL;
-                local->interaction->msgsig.op = strdup(node->interaction->msgsig.op);
-                local->interaction->msgsig.payload = strdup(node->interaction->msgsig.payload);
-                local->interaction->msg_cond = st_node_copy_role(to);
-                st_node_append(root, local);
-                break;
+        // Match receiver
+        if (to_is_anon_group) {
+          if (strcmp(to->name, projectrole) == 0) {
+#ifdef __DEBUG__
+            fprintf(stderr, "INFO/Triggers Rule 6.1: Group (inline)\n");
+#endif
+            local = st_node_init((st_node *)malloc(sizeof(st_node)), ST_NODE_RECV);
+            local->interaction->from = st_node_copy_role(from);
+            local->interaction->nto = 0;
+            local->interaction->to = NULL;
+            local->interaction->msgsig.op = strdup(node->interaction->msgsig.op);
+            local->interaction->msgsig.payload = strdup(node->interaction->msgsig.payload);
+            local->interaction->msg_cond = st_node_copy_role(to);
+            st_node_append(root, local);
+          }
+        } else {
+          // Search for the group that this matches
+          for (int group=0; group<tree->info->ngroup; group++) {
+            if (strcmp(to->name, tree->info->groups[group]->name) == 0) {
+              for (int member=0; member<tree->info->groups[group]->nmemb; member++) {
+                if (strcmp(ST_ROLE_ALL, projectrole) == 0 // Always match if it's ALL
+                    || strcmp(tree->info->groups[group]->membs[member]->name, projectrole) == 0) {
+#ifdef __DEBUG__
+                  fprintf(stderr, "INFO/Triggers Rule 6.2: Group (declared)\n");
+#endif
+                  local = st_node_init((st_node *)malloc(sizeof(st_node)), ST_NODE_RECV);
+                  local->interaction->from = st_node_copy_role(from);
+                  local->interaction->nto = 0;
+                  local->interaction->to = NULL;
+                  local->interaction->msgsig.op = strdup(node->interaction->msgsig.op);
+                  local->interaction->msgsig.payload = strdup(node->interaction->msgsig.payload);
+                  local->interaction->msg_cond = st_node_copy_role(to);
+                  st_node_append(root, local);
+                  break;
+                }
               }
             }
           }
@@ -181,22 +211,44 @@ st_node *scribble_project_message(st_tree *tree, st_node *node, char *projectrol
 
       if (from_is_group) { // Rule 7 Group
 #ifdef __DEBUG__
-        fprintf(stderr, "INFO/Triggers Rule 7: Group\n");
+        fprintf(stderr, "INFO/Rule 7: Group\n");
 #endif
-        for (int group=0; group<tree->info->ngroup; group++) {
-          if (strcmp(from->name, tree->info->groups[group]->name) == 0) {
-            for (int member=0; member<tree->info->groups[group]->nmemb; member++) {
-              if (strcmp(ST_ROLE_ALL, projectrole) == 0 || strcmp(tree->info->groups[group]->membs[member]->name, projectrole) == 0) {
-                local = st_node_init((st_node *)malloc(sizeof(st_node)), ST_NODE_SEND);
-                local->interaction->from = NULL;
-                local->interaction->nto = 1;
-                local->interaction->to = (st_role **)calloc(local->interaction->nto, sizeof(st_role *));
-                local->interaction->to[0] = st_node_copy_role(to);
-                local->interaction->msgsig.op = strdup(node->interaction->msgsig.op);
-                local->interaction->msgsig.payload = strdup(node->interaction->msgsig.payload);
-                local->interaction->msg_cond = st_node_copy_role(from);
-                st_node_append(root, local);
-                break;
+        if (from_is_anon_group) {
+          if (strcmp(from->name, projectrole) == 0) {
+#ifdef __DEBUG__
+            fprintf(stderr, "INFO/Triggers Rule 7.1: Group (inline)\n");
+#endif
+            local = st_node_init((st_node *)malloc(sizeof(st_node)), ST_NODE_SEND);
+            local->interaction->from = NULL;
+            local->interaction->nto = 1;
+            local->interaction->to = (st_role **)calloc(local->interaction->nto, sizeof(st_role *));
+            local->interaction->to[0] = st_node_copy_role(to);
+            local->interaction->msgsig.op = strdup(node->interaction->msgsig.op);
+            local->interaction->msgsig.payload = strdup(node->interaction->msgsig.payload);
+            local->interaction->msg_cond = st_node_copy_role(from);
+            st_node_append(root, local);
+          }
+        } else {
+          // Search for the group that this matches
+          for (int group=0; group<tree->info->ngroup; group++) {
+            if (strcmp(from->name, tree->info->groups[group]->name) == 0) {
+              for (int member=0; member<tree->info->groups[group]->nmemb; member++) {
+                if (strcmp(ST_ROLE_ALL, projectrole) == 0 // Always match if it's ALL
+                    || strcmp(tree->info->groups[group]->membs[member]->name, projectrole) == 0) {
+#ifdef __DEBUG__
+                  fprintf(stderr, "INFO/Triggers Rule 7.2: Group (declared)\n");
+#endif
+                  local = st_node_init((st_node *)malloc(sizeof(st_node)), ST_NODE_SEND);
+                  local->interaction->from = NULL;
+                  local->interaction->nto = 1;
+                  local->interaction->to = (st_role **)calloc(local->interaction->nto, sizeof(st_role *));
+                  local->interaction->to[0] = st_node_copy_role(to);
+                  local->interaction->msgsig.op = strdup(node->interaction->msgsig.op);
+                  local->interaction->msgsig.payload = strdup(node->interaction->msgsig.payload);
+                  local->interaction->msg_cond = st_node_copy_role(from);
+                  st_node_append(root, local);
+                  break;
+                }
               }
             }
           }
@@ -213,7 +265,7 @@ st_node *scribble_project_message(st_tree *tree, st_node *node, char *projectrol
       local->interaction->from = st_node_copy_role(from);
       for (int param=0; param<to->dimen; param++) {
         if ((from->param[param]->type == ST_EXPR_TYPE_CONST)
-            ||(from->param[param]->type == ST_EXPR_TYPE_VAR && st_tree_is_constant(tree, from->param[param]->var))) { // Is it an unbounded constant?
+            ||(from->param[param]->type == ST_EXPR_TYPE_VAR && st_tree_has_constant(tree, from->param[param]->var))) { // Is it an unbounded constant?
           // Do nothing
         } else {
           // inv(e)
@@ -257,6 +309,10 @@ st_node *scribble_project_message(st_tree *tree, st_node *node, char *projectrol
 
   } /* end Parametric roles */
 
+#ifdef __DEBUG__
+  fprintf(stderr, "INFO/%s:%d %s exit\n", __FILE__, __LINE__, __FUNCTION__);
+#endif
+
   if (root->nchild == 0) {
 
     return NULL;
@@ -274,7 +330,6 @@ st_node *scribble_project_message(st_tree *tree, st_node *node, char *projectrol
     return root;
 
   }
-
 }
 
 
@@ -349,10 +404,7 @@ st_node *scribble_project_foreach(st_tree *tree, st_node *node, char *projectrol
   assert(tree != NULL && node != NULL && node->type == ST_NODE_FOR);
 
   st_node *local = st_node_init((st_node *)malloc(sizeof(st_node)), ST_NODE_FOR);
-  local->forloop->range = (st_rng_expr_t *)malloc(sizeof(st_rng_expr_t));
-  local->forloop->range->bindvar = strdup(node->forloop->range->bindvar);
-  local->forloop->range->from = st_expr_copy(node->forloop->range->from);
-  local->forloop->range->to = st_expr_copy(node->forloop->range->to);
+  local->forloop->range = st_expr_init_rng(strdup(node->forloop->range->bindvar), st_expr_copy(node->forloop->range->from), st_expr_copy(node->forloop->range->to));
   local->forloop->except = node->forloop->except == NULL ? NULL : strdup(node->forloop->except);
 
   if (env->count == 0) {
@@ -362,10 +414,7 @@ st_node *scribble_project_foreach(st_tree *tree, st_node *node, char *projectrol
   }
   env->exprs[env->count] = (st_expr *)malloc(sizeof(st_expr));
   env->exprs[env->count]->type = ST_EXPR_TYPE_RNG;
-  env->exprs[env->count]->rng = (st_rng_expr_t *)malloc(sizeof(st_rng_expr_t));
-  env->exprs[env->count]->rng->bindvar = strdup(node->forloop->range->bindvar);
-  env->exprs[env->count]->rng->from = st_expr_copy(node->forloop->range->from);
-  env->exprs[env->count]->rng->to = st_expr_copy(node->forloop->range->to);
+  env->exprs[env->count]->rng = st_expr_init_rng(strdup(node->forloop->range->bindvar), st_expr_copy(node->forloop->range->from), st_expr_copy(node->forloop->range->to));
   env->count++;
 
   st_node *child_node = NULL;
@@ -434,10 +483,7 @@ st_node *scribble_project_ifblk_simplify(st_tree *tree, st_node *node, char *pro
         break;
       case ST_NODE_FOR:
         if (expr->type == ST_EXPR_TYPE_VAR && node->forloop->except != NULL && strcmp(node->forloop->except, expr->var) == 0) return NULL; // We are projecting for [i]
-        local->forloop->range = (st_rng_expr_t *)malloc(sizeof(st_rng_expr_t));
-        local->forloop->range->bindvar = strdup(node->forloop->range->bindvar);
-        local->forloop->range->from = st_expr_copy(node->forloop->range->from);
-        local->forloop->range->to = st_expr_copy(node->forloop->range->to);
+        local->forloop->range = st_expr_init_rng(strdup(node->forloop->range->bindvar), st_expr_copy(node->forloop->range->from), st_expr_copy(node->forloop->range->to));
         local->forloop->except = strdup(node->forloop->except);
         break;
       case ST_NODE_ALLREDUCE:
@@ -445,10 +491,7 @@ st_node *scribble_project_ifblk_simplify(st_tree *tree, st_node *node, char *pro
         break;
       case ST_NODE_ONEOF:
         local->oneof->role = strdup(node->oneof->role);
-        local->oneof->range = (st_rng_expr_t *)malloc(sizeof(st_rng_expr_t));
-        local->oneof->range->bindvar = strdup(node->oneof->range->bindvar);
-        local->oneof->range->from = st_expr_copy(node->oneof->range->from);
-        local->oneof->range->to = st_expr_copy(node->oneof->range->to);
+        local->oneof->range = st_expr_init_rng(strdup(node->oneof->range->bindvar), st_expr_copy(node->oneof->range->from), st_expr_copy(node->oneof->range->to));
         break;
       case ST_NODE_IFBLK:
         local->ifblk->cond = st_node_copy_role(node->ifblk->cond);
@@ -497,10 +540,7 @@ st_node *scribble_project_oneof(st_tree *tree, st_node *node, char *projectrole,
   // Copy over the oneof statement as child if-block
   st_node *coord_oneof = st_node_init((st_node *)malloc(sizeof(st_node)), ST_NODE_ONEOF);
   coord_oneof->oneof->role = strdup(node->oneof->role);
-  coord_oneof->oneof->range = (st_rng_expr_t *)malloc(sizeof(st_rng_expr_t));
-  coord_oneof->oneof->range->bindvar = strdup(node->oneof->range->bindvar);
-  coord_oneof->oneof->range->from = st_expr_copy(node->oneof->range->from);
-  coord_oneof->oneof->range->to = st_expr_copy(node->oneof->range->to);
+  coord_oneof->oneof->range = st_expr_init_rng(strdup(node->oneof->range->bindvar), st_expr_copy(node->oneof->range->from), st_expr_copy(node->oneof->range->to));
   coord_oneof->oneof->unordered = node->oneof->unordered;
   if (coord_oneof != NULL) st_node_append(coord, st_node_append(st_node_init((st_node *)malloc(sizeof(st_node)), ST_NODE_ROOT), coord_oneof));
   if (coord != NULL) st_node_append(local, coord);
@@ -511,12 +551,8 @@ st_node *scribble_project_oneof(st_tree *tree, st_node *node, char *projectrole,
   worker->ifblk->cond->name = strdup(node->oneof->role);
   worker->ifblk->cond->dimen = 1;
   worker->ifblk->cond->param = (st_expr **)malloc(sizeof(st_expr));
-  worker->ifblk->cond->param[0] = (st_expr *)malloc(sizeof(st_expr));
-  worker->ifblk->cond->param[0]->type = ST_EXPR_TYPE_RNG;
-  worker->ifblk->cond->param[0]->rng = (st_rng_expr_t *)malloc(sizeof(st_rng_expr_t));
+  worker->ifblk->cond->param[0] = st_expr_range(st_expr_copy(node->oneof->range->from), st_expr_copy(node->oneof->range->to));
   worker->ifblk->cond->param[0]->rng->bindvar = strdup(node->oneof->range->bindvar);
-  worker->ifblk->cond->param[0]->rng->from = st_expr_copy(node->oneof->range->from);
-  worker->ifblk->cond->param[0]->rng->to = st_expr_copy(node->oneof->range->to);
   if (worker != NULL) st_node_append(local, worker);
 
   st_expr *worker_expr = NULL;

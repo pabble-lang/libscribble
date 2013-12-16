@@ -8,6 +8,7 @@
 #include <stdlib.h>
 
 #include <sesstype/st_node.h>
+#include <sesstype/st_node_print.h>
 
 extern int yyparse(st_tree *tree);
 extern FILE *yyin;

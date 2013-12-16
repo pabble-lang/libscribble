@@ -1,3 +1,9 @@
+libscribble (1.3.4~scribble0.3+pabble) unstable; urgency=low
+
+  * Fix parser and projection support for inline group
+
+ -- Nicholas Ng <nickng@doc.ic.ac.uk>  Thu, 5 Dec 2013 20:38:00 +0000
+
 libscribble (1.3.3~scribble0.3+pabble) unstable; urgency=low
 
   * Quickfix: Printing of oneof misses out role name

@@ -188,10 +188,7 @@ static st_node *foreach_except_node(st_expr *bind_expr, char *except, st_node* b
 {
   assert(bind_expr->type == ST_EXPR_TYPE_RNG);
   st_node *node = st_node_init((st_node *)malloc(sizeof(st_node)), ST_NODE_FOR);
-  node->forloop->range = (st_rng_expr_t *)malloc(sizeof(st_rng_expr_t));
-  node->forloop->range->bindvar = strdup(bind_expr->rng->bindvar);
-  node->forloop->range->from = st_expr_copy(bind_expr->rng->from);
-  node->forloop->range->to = st_expr_copy(bind_expr->rng->to);
+  node->forloop->range = st_expr_init_rng(strdup(bind_expr->rng->bindvar), st_expr_copy(bind_expr->rng->from), st_expr_copy(bind_expr->rng->to));
   node->forloop->except = strdup(except);
 
   node->nchild = 1;
@@ -205,10 +202,7 @@ static st_node *foreach_node(st_expr *bind_expr, st_node *body)
 {
   assert(bind_expr->type == ST_EXPR_TYPE_RNG);
   st_node *node = st_node_init((st_node *)malloc(sizeof(st_node)), ST_NODE_FOR);
-  node->forloop->range = (st_rng_expr_t *)malloc(sizeof(st_rng_expr_t));
-  node->forloop->range->bindvar = strdup(bind_expr->rng->bindvar);
-  node->forloop->range->from = st_expr_copy(bind_expr->rng->from);
-  node->forloop->range->to = st_expr_copy(bind_expr->rng->to);
+  node->forloop->range = st_expr_init_rng(strdup(bind_expr->rng->bindvar), st_expr_copy(bind_expr->rng->from), st_expr_copy(bind_expr->rng->to));
 
   node->nchild = 1;
   node->children = (st_node **)calloc(sizeof(st_node *), node->nchild);
@@ -241,10 +235,7 @@ static st_node *oneof_node(char *role, char *bindvar, st_expr *rngexpr, st_node 
 {
   st_node *node = st_node_init((st_node *)malloc(sizeof(st_node)), ST_NODE_ONEOF);
   node->oneof->role = strdup(role);
-  node->oneof->range = (st_rng_expr_t *)malloc(sizeof(st_rng_expr_t));
-  node->oneof->range->bindvar = strdup(bindvar);
-  node->oneof->range->from = st_expr_copy(rngexpr->rng->from);
-  node->oneof->range->to = st_expr_copy(rngexpr->rng->to);
+  node->oneof->range = st_expr_init_rng(strdup(bindvar), st_expr_copy(rngexpr->rng->from), st_expr_copy(rngexpr->rng->to));
   node->oneof->unordered = 0;
 
   node->nchild = 1;
