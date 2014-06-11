@@ -284,6 +284,27 @@ st_node *scribble_project_message(st_tree *tree, st_node *node, char *projectrol
         }
       }
       local->interaction->msg_cond = st_node_copy_role(to); // e
+
+      // --- hack ---
+      int role_index = -1;
+      for (int x=0; x<tree->info->nrole; x++) {
+        if (strcmp(tree->info->roles[x]->name, local->interaction->msg_cond->name) == 0) {
+          role_index = x;
+        }
+      }
+      if (local->interaction->msg_cond != NULL) {
+        if (local->interaction->msg_cond->dimen == 1
+            && local->interaction->msg_cond->param[0]->type == ST_EXPR_TYPE_RNG
+            && local->interaction->msg_cond->param[0]->rng->from->type == ST_EXPR_TYPE_CONST
+            && local->interaction->msg_cond->param[0]->rng->to->type == ST_EXPR_TYPE_CONST
+            && local->interaction->msg_cond->param[0]->rng->from->num <= tree->info->roles[role_index]->param[0]->rng->from->num
+            && local->interaction->msg_cond->param[0]->rng->to->num >= tree->info->roles[role_index]->param[0]->rng->to->num) {
+          fprintf(stderr, "ERROR: Out of bounds!\n");
+          local->marked = 1;
+        }
+      }
+      // --- hack ---
+
       for (int param=0; param<local->interaction->msg_cond->dimen; param++) {
         // apply(b, e);
         local->interaction->msg_cond->param[param] = st_expr_apply(from->param[param], local->interaction->msg_cond->param[param]);
@@ -304,6 +325,27 @@ st_node *scribble_project_message(st_tree *tree, st_node *node, char *projectrol
       local->interaction->msg_cond = st_node_copy_role(from);
       local->interaction->msgsig.op = strdup(node->interaction->msgsig.op);
       local->interaction->msgsig.payload = strdup(node->interaction->msgsig.payload);
+
+      // --- hack ---
+      int role_index = -1;
+      for (int x=0; x<tree->info->nrole; x++) {
+        if (strcmp(tree->info->roles[x]->name, local->interaction->msg_cond->name) == 0) {
+          role_index = x;
+        }
+      }
+      if (local->interaction->msg_cond != NULL) {
+        if (local->interaction->msg_cond->dimen == 1
+            && local->interaction->msg_cond->param[0]->type == ST_EXPR_TYPE_RNG
+            && local->interaction->msg_cond->param[0]->rng->from->type == ST_EXPR_TYPE_CONST
+            && local->interaction->msg_cond->param[0]->rng->to->type == ST_EXPR_TYPE_CONST
+            && local->interaction->msg_cond->param[0]->rng->from->num <= tree->info->roles[role_index]->param[0]->rng->from->num
+            && local->interaction->msg_cond->param[0]->rng->to->num >= tree->info->roles[role_index]->param[0]->rng->to->num) {
+          fprintf(stderr, "ERROR: Out of bounds!\n");
+          local->marked = 1;
+        }
+      }
+      // --- hack ---
+
       st_node_append(root, local);
     }
 

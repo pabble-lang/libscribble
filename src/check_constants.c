@@ -20,6 +20,15 @@
 static char *inf_const = NULL;
 static st_tree *_tree = NULL;
 
+static int tree_has_inf(st_tree *tree)
+{
+  for (int c=0; c<tree->info->nconst; c++) {
+    if (tree->info->consts[c]->type == ST_CONST_INF)
+      return 1;
+  }
+  return 0;
+}
+
 static int get_inf_count(st_tree *tree)
 {
   int count = 0;
@@ -78,7 +87,7 @@ static int expr_is_valid(st_expr *e)
     case ST_EXPR_TYPE_MOD:
     case ST_EXPR_TYPE_SHL:
     case ST_EXPR_TYPE_SHR:
-      return !has_inf(e); // Expressions with INF must not use these operators
+      return !has_inf(e) && !tree_has_inf(_tree); // Expressions with INF must not use these operators
     default:
       fprintf(stderr, "%s:%d Unknown expr type %d\n",
           __FILE__, __LINE__, e->type);
@@ -195,7 +204,7 @@ int scribble_check_constants(st_tree *tree)
 
   _tree = tree;
 
-  if (get_inf_count(tree) > 0) {
+  if (get_inf_count(tree) > 1) {
     fprintf(stderr, "%s:%d %s Error: Given protocol has more than one unbounded constants\n",
         __FILE__, __LINE__, __FUNCTION__);
     return 1;

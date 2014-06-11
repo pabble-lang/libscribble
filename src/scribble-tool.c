@@ -56,6 +56,7 @@ int main(int argc, char *argv[])
       case 'p':
         project_role = (char *)calloc(sizeof(char), strlen(optarg)+1);
         strcpy(project_role, optarg);
+        check = 1;
         break;
       case 'o':
         output_file = (char *)calloc(sizeof(char), strlen(optarg)+1);
@@ -123,6 +124,9 @@ int main(int argc, char *argv[])
       fprintf(stderr, "Well-formedness checks failed! (see error messages above)\n");
       if (verbosity_level > 1) st_tree_print(tree);
       scribble_print(tree);
+      st_node_reset_markedflag(tree->root);
+      st_tree_free(tree);
+      return EXIT_FAILURE;
     }
     st_node_reset_markedflag(tree->root);
   }

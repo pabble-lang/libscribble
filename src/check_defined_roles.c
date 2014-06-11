@@ -14,12 +14,17 @@
 #include <sesstype/st_node.h>
 #include "scribble/check.h"
 
+static st_tree *t;
+
 static inline int role_is_defined(st_role *role, st_role *decl_roles[], unsigned int ndecl_role)
 {
   int found = 0;
   for (unsigned int i=0; i<ndecl_role; i++) {
     found |= (strcmp(decl_roles[i]->name, role->name) == 0
               && decl_roles[i]->dimen == role->dimen);
+  }
+  for (unsigned int i=0; i<t->info->ngroup; i++) {
+    found |= (strcmp(t->info->groups[i]->name, role->name) == 0 || strcmp(role->name, ST_ROLE_ALL) == 0);
   }
   return found;
 }
@@ -55,7 +60,7 @@ static int check_node(st_node *node, st_role *decl_roles[], unsigned int ndecl_r
         error = 1;
       }
       for (int i=0; i<node->interaction->nto; ++i) {
-        found |= role_is_defined(node->interaction->to[i], decl_roles, ndecl_role);
+        found &= role_is_defined(node->interaction->to[i], decl_roles, ndecl_role);
         if (!found) {
           fprintf(stderr,
               "%s: To #%d (%s/%d) not declared\n",
@@ -109,6 +114,8 @@ int scribble_check_defined_roles(st_tree *tree)
     fprintf(stderr, "%s:%d %s Given protocol is not global protocol\n", __FILE__, __LINE__, __FUNCTION__);
     return 1; // Cannot check so always return error
   }
+
+  t = tree;
 
   return check_node(tree->root, tree->info->roles, tree->info->nrole);
 }
