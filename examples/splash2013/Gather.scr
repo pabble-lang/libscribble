@@ -1,5 +1,6 @@
-package splash2013
+module splash2013;
 
+const N = 1..inf;
 global protocol Gather(role Worker[0..N]) {
   (int) from All to Worker[3];
   MPI_SUB(int) from All to Worker[0];

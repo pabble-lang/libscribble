@@ -1,3 +1,10 @@
+libscribble (1.3.6~scribble0.3+pabble) unstable; urgency=low
+
+  * Fix examples to use follow updated syntax
+  * Minor fix for wrong well-formedness check that fails for Alltoall
+
+ -- Nicholas Ng <nickng@doc.ic.ac.uk>  Thu, 31 Jul 2014 16:11:22 +0000
+
 libscribble (1.3.5~scribble0.3+pabble) unstable; urgency=low
 
   * Fix inf-checking bug

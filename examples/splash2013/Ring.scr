@@ -1,5 +1,6 @@
-package splash2013
+module splash2013;
 
+const N = 2..inf;
 global protocol Ring(role Worker[1..N]){
   rec LOOP {
     Data(int) from Worker[i:1..N-1] to Worker[i+1];

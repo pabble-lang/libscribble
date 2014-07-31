@@ -1,5 +1,6 @@
-package splash2013
+module splash2013;
 
+const N = 1..inf;
 global protocol Alltoall(role Worker[0..N]) {
   rec LOOP {
     Link(int) from Worker[1] to Worker[N];

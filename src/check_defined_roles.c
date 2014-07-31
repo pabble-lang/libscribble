@@ -24,8 +24,9 @@ static inline int role_is_defined(st_role *role, st_role *decl_roles[], unsigned
               && decl_roles[i]->dimen == role->dimen);
   }
   for (unsigned int i=0; i<t->info->ngroup; i++) {
-    found |= (strcmp(t->info->groups[i]->name, role->name) == 0 || strcmp(role->name, ST_ROLE_ALL) == 0);
+    found |= (strcmp(t->info->groups[i]->name, role->name) == 0);
   }
+  found |= (strcmp(role->name, ST_ROLE_ALL) == 0);
   return found;
 }
 

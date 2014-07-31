@@ -1,6 +1,6 @@
-package splash2013
+module splash2013;
 
-const N = 10
+const N = 10;
 global protocol Solver(role Worker[1..N][1..N], group MainColumn={ Worker[1..N][1..1] }) {
   rec CONVERGE {
     Ring(double) from Worker[i:1..N][j:1..N-1] to Worker[i][j+1];
