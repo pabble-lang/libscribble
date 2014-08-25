@@ -60,6 +60,7 @@ comment                 "//"([^\n])*\n
 "interruptible"         { DEBUG_PRINT("Token: INTERRUPTIBLE '%s'\n"); return INTERRUPTIBLE; }
 "is"                    { DEBUG_PRINT("Token: IS '%s'\n");            return IS;            } /* Pabble */
 "local"                 { DEBUG_PRINT("Token: LOCAL '%s'\n");         return LOCAL;         }
+"max"                   { DEBUG_PRINT("Token: INFinity '%s'\n");      return INF;           } /* Pabble */
 "module"                { DEBUG_PRINT("Token: MODULE '%s'\n");        return MODULE;        }
 "oneof"                 { DEBUG_PRINT("Token: ONEOF '%s'\n");         return ONEOF;         } /* Pabble dynamic */
 "or"                    { DEBUG_PRINT("Token: OR '%s'\n");            return OR;            }

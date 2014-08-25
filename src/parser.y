@@ -36,6 +36,8 @@ void yyerror(st_tree *tree, const char *s)
     st_node *node;
     st_nodes *node_list;
     st_node_msgsig_t msgsig;
+    st_node_msgsig_payload_t payload;
+    st_node_msgsig_payloads *payloads;
     st_expr *expr;
     st_role *role;
     st_role_group *roles;
@@ -66,7 +68,8 @@ void yyerror(st_tree *tree, const char *s)
     /* 3.5 Message signatures */
 %type <str> message_operator
 %type <msgsig> message_signature
-%type <str> payloads payload_element
+%type <payloads> payloads
+%type <payload> payload_element
 
     /* [Pabble] Expressions */
 %type <expr> arith_expr bind_expr range_expr
@@ -208,20 +211,22 @@ payload_type_decl : TYPE LANGLE IDENTIFIER RANGLE IDENTIFIER FROM IDENTIFIER AS 
 
 /** 3.5 Payload Type Declarations **/
 
-message_operator : /* Empty */ { $$ = NULL; }
+message_operator : /* Empty */ { $$ = ""; }
                  | IDENTIFIER  { $$ = $1;   }
                  ;
 
-message_signature : message_operator LPAREN          RPAREN { $$ = (st_node_msgsig_t){ .op=$1==NULL?"":strdup($1), .payload=""}; }
-                  | message_operator LPAREN payloads RPAREN { $$ = (st_node_msgsig_t){ .op=$1==NULL?"":strdup($1), .payload=strdup($3) }; }
+message_signature : message_operator LPAREN          RPAREN { $$ = (st_node_msgsig_t){ .op=$1, .npayload=0,         .payloads=NULL }; }
+                  | message_operator LPAREN payloads RPAREN { $$ = (st_node_msgsig_t){ .op=$1, .npayload=$3->count, .payloads=$3->payloads }; }
                   ;
 
-payloads :                payload_element { $$ = $1; }
-         | payloads COMMA payload_element { $$ = $3; /* Ignore preceding payload_elements */ }
+payloads :                payload_element { $$ = payloads_add(NULL, $1); }
+         | payloads COMMA payload_element { $$ = payloads_add($1,   $3); }
          ;
 
-payload_element :                       parameter_name { $$ = $1; }
-                | annotation_name COLON parameter_name { $$ = $3; /* Ignoring annotation_name */ }
+payload_element :                       parameter_name { $$ = payload(NULL, $1, NULL); }
+                | annotation_name COLON parameter_name { $$ = payload($1,   $3, NULL); }
+                |                       parameter_name LSQUARE arith_expr RSQUARE { $$ = payload(NULL, $1, $3); }
+                | annotation_name COLON parameter_name LSQUARE arith_expr RSQUARE { $$ = payload($1,   $3, $5); }
              /* |                       payload_type_name { $$ = $1; } */
              /* | annotation_name COLON payload_type_name { $$ = $3; } */
                 ;
@@ -290,8 +295,8 @@ role_decls :                  role_decl
            | role_decls COMMA role_decl
            ;
 
-role_decl : ROLE role_name role_param_decls                   { st_tree_add_role(tree, role_set_name($3, $2)); }
-          | ROLE role_name role_param_decls AS parameter_name { st_tree_add_role(tree, role_set_name($3, $2)); /* Ignoring parameter_name */ }
+role_decl : ROLE role_name role_param_decls                   { st_tree_add_role(tree, st_role_set_name($3, $2)); }
+          | ROLE role_name role_param_decls AS parameter_name { st_tree_add_role(tree, st_role_set_name($3, $2)); /* Ignoring parameter_name */ }
           ;
 
 parameter_decl_list : LANGLE parameter_decls RANGLE
@@ -311,18 +316,18 @@ parameter_decl : TYPE parameter_name
 /** [Pabble] Role Parameters **/
 
 role_param_decls : /* Empty */                                 { $$ = role_empty(); }
-                 | role_param_decls LSQUARE range_expr RSQUARE { $$ = role_add_param($1, $3); }
+                 | role_param_decls LSQUARE range_expr RSQUARE { $$ = st_role_add_param($1, $3); }
                  ;
 
 role_params : /* Empty */                            { $$ = role_empty(); }
-            | role_params LSQUARE bind_expr  RSQUARE { $$ = role_add_param($1, $3); }
-            | role_params LSQUARE arith_expr RSQUARE { $$ = role_add_param($1, $3); }
-            | role_params LSQUARE range_expr RSQUARE { $$ = role_add_param($1, $3); }
+            | role_params LSQUARE bind_expr  RSQUARE { $$ = st_role_add_param($1, $3); }
+            | role_params LSQUARE arith_expr RSQUARE { $$ = st_role_add_param($1, $3); }
+            | role_params LSQUARE range_expr RSQUARE { $$ = st_role_add_param($1, $3); }
             ;
 
 role_params_ : /* Empty */                             { $$ = role_empty(); }
-             | role_params_ LSQUARE arith_expr RSQUARE { $$ = role_add_param($1, $3); }
-             | role_params_ LSQUARE range_expr RSQUARE { $$ = role_add_param($1, $3); }
+             | role_params_ LSQUARE arith_expr RSQUARE { $$ = st_role_add_param($1, $3); }
+             | role_params_ LSQUARE range_expr RSQUARE { $$ = st_role_add_param($1, $3); }
              ;
 
 
@@ -332,11 +337,11 @@ group_decls :
             | group_decl group_decls 
             ;
 
-group_decl : COMMA GROUP group_name EQUAL LBRACE roles RBRACE { st_tree_add_role_group(tree, role_group_set_name($6, $3)); }
+group_decl : COMMA GROUP group_name EQUAL LBRACE roles RBRACE { st_tree_add_role_group(tree, st_role_group_set_name($6, $3)); }
            ;
 
-roles :       role_name role_param_decls { $$ = role_group_add_role((st_role_group *)malloc(sizeof(st_role_group)), role_set_name($2, $1)); }
-      | roles role_name role_param_decls { $$ = role_group_add_role($$, role_set_name($3, $2)); }
+roles :       role_name role_param_decls { $$ = st_role_group_add_role((st_role_group *)malloc(sizeof(st_role_group)), st_role_set_name($2, $1)); }
+      | roles role_name role_param_decls { $$ = st_role_group_add_role($$, st_role_set_name($3, $2)); }
       ;
 
 
@@ -407,7 +412,7 @@ global_interaction : global_message_transfer { $$ = $1; }
 /** 3.7.4 Global Message Transfer **/
 /** [Pabble] No multple receivers **/
 
-global_message_transfer : message FROM role_name role_params TO role_name role_params_ SEMICOLON { $$ = message_node($1, role_set_name($4, $3), role_set_name($7, $6)); }
+global_message_transfer : message FROM role_name role_params TO role_name role_params_ SEMICOLON { $$ = message_node($1, st_role_set_name($4, $3), st_role_set_name($7, $6)); }
                         ;
 
 messages :                message
@@ -415,13 +420,13 @@ messages :                message
          ;
 
 message : message_signature { $$ = $1; }
-        | parameter_name    { $$ = (st_node_msgsig_t){ .op="", .payload=strdup($1) }; }
+        | parameter_name    { $$ = (st_node_msgsig_t){ .op="", .npayload=0, .payloads=NULL }; /* What is this supposed to do? */ assert(0); }
         ;
 
 
 /** 3.7.5 Global Choice **/
 
-global_choice : CHOICE AT role_name role_params global_interaction_block or_global_interaction_blocks { $$ = choice_node(role_set_name($4, $3), $5, $6); }
+global_choice : CHOICE AT role_name role_params global_interaction_block or_global_interaction_blocks { $$ = choice_node(st_role_set_name($4, $3), $5, $6); }
        ;
 
 or_global_interaction_blocks : /* Empty */                                              { $$ = st_node_init((st_node *)malloc(sizeof(st_node)), ST_NODE_ROOT); }
@@ -494,8 +499,8 @@ local_protocol_decl : local_protocol_header local_protocol_definition
                     | local_protocol_header local_protocol_instance
                     ;
 
-local_protocol_header : LOCAL PROTOCOL protocol_name AT role_name role_param_decls                     role_decl_list { st_tree_set_local_name(tree, $3, role_set_name($6, $5)); }
-                      | LOCAL PROTOCOL protocol_name AT role_name role_param_decls parameter_decl_list role_decl_list { st_tree_set_local_name(tree, $3, role_set_name($6, $5)); }
+local_protocol_header : LOCAL PROTOCOL protocol_name AT role_name role_param_decls                     role_decl_list { st_tree_set_local_name(tree, $3, st_role_set_name($6, $5)); }
+                      | LOCAL PROTOCOL protocol_name AT role_name role_param_decls parameter_decl_list role_decl_list { st_tree_set_local_name(tree, $3, st_role_set_name($6, $5)); }
                       ;
 
 
@@ -544,18 +549,18 @@ local_interaction : local_send          { $$ = $1; }
 
 /** 3.8.4 Local Send and Receive **/
 
-local_send :                          message TO role_name role_params_ SEMICOLON { $$ = send_node(role_set_name($4, $3), $1, NULL); }
-           | IF role_name role_params message TO role_name role_params_ SEMICOLON { $$ = send_node(role_set_name($7, $6), $4, role_set_name($3, $2)); }
+local_send :                          message TO role_name role_params_ SEMICOLON { $$ = send_node(st_role_set_name($4, $3), $1, NULL); }
+           | IF role_name role_params message TO role_name role_params_ SEMICOLON { $$ = send_node(st_role_set_name($7, $6), $4, st_role_set_name($3, $2)); }
            ;
 
-local_receive :                          message FROM role_name role_params_ SEMICOLON { $$ = recv_node(role_set_name($4, $3), $1, NULL); }
-              | IF role_name role_params message FROM role_name role_params_ SEMICOLON { $$ = recv_node(role_set_name($7, $6), $4, role_set_name($3, $2)); }
+local_receive :                          message FROM role_name role_params_ SEMICOLON { $$ = recv_node(st_role_set_name($4, $3), $1, NULL); }
+              | IF role_name role_params message FROM role_name role_params_ SEMICOLON { $$ = recv_node(st_role_set_name($7, $6), $4, st_role_set_name($3, $2)); }
               ;
 
 
 /** 3.8.5 Local Choice **/
 
-local_choice : CHOICE AT role_name role_params local_interaction_block or_local_interaction_blocks { $$ = choice_node(role_set_name($4, $3), $5, $6); }
+local_choice : CHOICE AT role_name role_params local_interaction_block or_local_interaction_blocks { $$ = choice_node(st_role_set_name($4, $3), $5, $6); }
              ;
 
 or_local_interaction_blocks : /* Empty */                                            { $$ = st_node_init((st_node *)malloc(sizeof(st_node)), ST_NODE_ROOT); }
@@ -624,7 +629,7 @@ local_allreduce : ALLREDUCE message_signature { $$ = allreduce_node($2); }
 
 /** [Pabble] If-block **/
 
-local_ifblock : IF role_name role_params local_interaction_block { $$ = ifblk_node(role_set_name($3, $2), $4); }
+local_ifblock : IF role_name role_params local_interaction_block { $$ = ifblk_node(st_role_set_name($3, $2), $4); }
               ;
 
 

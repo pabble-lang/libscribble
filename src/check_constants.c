@@ -15,9 +15,10 @@
 #include <sesstype/st_node.h>
 #include <sesstype/st_expr.h>
 #include "scribble/check.h"
+#include "scribble/print_utils.h"
 
 
-static char *inf_const = NULL;
+static char *inf_const = "inf";
 static st_tree *_tree = NULL;
 
 static int tree_has_inf(st_tree *tree)
@@ -34,7 +35,6 @@ static int get_inf_count(st_tree *tree)
   int count = 0;
   for (int i=0; i<tree->info->nconst; i++) {
     if (tree->info->consts[i]->type == ST_CONST_INF) {
-      if (inf_const != NULL) free(inf_const);
       inf_const = strdup(tree->info->consts[i]->name);
       count++;
     }
@@ -64,7 +64,7 @@ static int has_inf(st_expr *e)
     case ST_EXPR_TYPE_SHR:
       return has_inf(e->bin->left) || has_inf(e->bin->right);
     default:
-      fprintf(stderr, "%s:%d Unknown expr type %d\n",
+      fprintf_error(stderr, "%s:%d Unknown expr type %d\n",
           __FILE__, __LINE__, e->type);
       return 0;
   }
@@ -89,7 +89,7 @@ static int expr_is_valid(st_expr *e)
     case ST_EXPR_TYPE_SHR:
       return !has_inf(e) && !tree_has_inf(_tree); // Expressions with INF must not use these operators
     default:
-      fprintf(stderr, "%s:%d Unknown expr type %d\n",
+      fprintf_error(stderr, "%s:%d Unknown expr type %d\n",
           __FILE__, __LINE__, e->type);
       return 0;
   }
@@ -139,7 +139,7 @@ static int node_has_only_valid_exprs(st_node *node)
     case ST_NODE_ROOT:
       break;
     default:
-      fprintf(stderr, "%s:%d Unknown node type %d\n",
+      fprintf_error(stderr, "%s:%d Unknown node type %d\n",
           __FILE__, __LINE__, node->type);
   }
   for (int i=0; i<node->nchild; i++) {
@@ -168,7 +168,7 @@ static int has_add(st_expr *e)
     case ST_EXPR_TYPE_SHR:
       return has_add(e->bin->left) || has_add(e->bin->right);
     default:
-      fprintf(stderr, "%s:%d Unknown expr type %d\n",
+      fprintf_error(stderr, "%s:%d Unknown expr type %d\n",
           __FILE__, __LINE__, e->type);
       return 0;
   }
@@ -205,17 +205,17 @@ int scribble_check_constants(st_tree *tree)
   _tree = tree;
 
   if (get_inf_count(tree) > 1) {
-    fprintf(stderr, "%s:%d %s Error: Given protocol has more than one unbounded constants\n",
+    fprintf_error(stderr, "%s:%d %s Error: Given protocol has more than one unbounded constants\n",
         __FILE__, __LINE__, __FUNCTION__);
     return 1;
   }
 
   if (!node_has_only_valid_exprs(tree->root)) {
-    fprintf(stderr, "%s:%d %s Error: Expressions found containing non +/- operations\n",
+    fprintf_error(stderr, "%s:%d %s Error: Expressions found containing non +/- operations\n",
         __FILE__, __LINE__, __FUNCTION__);
     return 1;
   }
 
-  fprintf(stderr, "Constants check complete\n");
+  fprintf_info(stderr, "Constants check complete\n");
   return 0;
 }

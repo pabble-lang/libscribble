@@ -10,6 +10,8 @@
 #include <sesstype/st_node.h>
 #include <sesstype/st_expr.h>
 
+#define ST_ROLE_ALL "__All"
+
 #ifdef __cplusplus
 extern "C" {
 #endif

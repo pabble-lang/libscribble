@@ -9,9 +9,9 @@ all: sharedlib objs
 
 objs: $(BUILD_DIR)/parser.o $(BUILD_DIR)/lexer.o \
 	$(BUILD_DIR)/check.o $(BUILD_DIR)/check_constants.o $(BUILD_DIR)/check_defined_roles.o $(BUILD_DIR)/check_index_bindings.o \
-	$(BUILD_DIR)/print.o $(BUILD_DIR)/project.o
+	$(BUILD_DIR)/print.o $(BUILD_DIR)/print_utils.o $(BUILD_DIR)/project.o
 
-sharedlib: $(BUILD_DIR)/scribble_parser.so $(BUILD_DIR)/scribble_lexer.so $(BUILD_DIR)/scribble_check.so $(BUILD_DIR)/scribble_print.so $(BUILD_DIR)/scribble_project.so
+sharedlib: $(BUILD_DIR)/scribble_parser.so $(BUILD_DIR)/scribble_lexer.so $(BUILD_DIR)/scribble_check.so $(BUILD_DIR)/scribble_print.so $(BUILD_DIR)/scribble_print_utils.so $(BUILD_DIR)/scribble_project.so
 
 tool: objs parser-tool.c scribble-tool.c
 	$(CC) $(CFLAGS) parser-tool.c \

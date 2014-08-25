@@ -27,6 +27,8 @@ int scribble_colour_mode(int colour_mode);
 void scribble_fprint_role(FILE *stream, st_role *role);
 void scribble_fprint_expr(FILE *stream, st_expr *expr);
 
+void scribble_fprint_msgsig(FILE *stream, st_node_msgsig_t msgsig);
+
 void scribble_fprint_root(FILE *stream, st_node *node, int indent);
 void scribble_fprint_message(FILE *stream, st_node *node, int indent);
 void scribble_fprint_send(FILE *stream, st_node *node, int indent);

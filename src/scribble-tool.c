@@ -11,10 +11,13 @@
 
 #include "scribble/check.h"
 #include "scribble/print.h"
+#include "scribble/print_utils.h"
 #include "scribble/project.h"
 
 extern int yyparse(st_tree *tree);
 extern FILE *yyin;
+
+int scribble_codegen_mode;
 
 
 int main(int argc, char *argv[])
@@ -33,9 +36,11 @@ int main(int argc, char *argv[])
     static struct option long_options[] = {
       {"project", required_argument, 0, 'p'},
       {"output",  required_argument, 0, 'o'},
+      {"codegen", no_argument,       0, 'g'},
       {"colour",  no_argument,       0,  0 },
       {"parse",   no_argument,       0, 's'},
       {"check",   no_argument,       0, 'c'},
+      {"no-check",no_argument,       0, 'n'},
       {"version", no_argument,       0, 'v'},
       {"verbose", no_argument,       0, 'V'},
       {"help",    no_argument,       0, 'h'},
@@ -53,6 +58,15 @@ int main(int argc, char *argv[])
           scribble_colour_mode(1);
         }
         break;
+      case 'c':
+        check = 1;
+        break;
+      case 'g':
+        scribble_codegen_mode = 1;
+        break;
+      case 'n': // Overrides 'c'
+        check = 0;
+        break;
       case 'p':
         project_role = (char *)calloc(sizeof(char), strlen(optarg)+1);
         strcpy(project_role, optarg);
@@ -64,9 +78,6 @@ int main(int argc, char *argv[])
         break;
       case 's':
         parse = 1;
-        break;
-      case 'c':
-        check = 1;
         break;
       case 'v':
         show_version = 1;
@@ -121,7 +132,7 @@ int main(int argc, char *argv[])
   if (check) {
     if (verbosity_level > 0) fprintf(stderr, "Well-formedness check\n");
     if (scribble_check(tree) != 0) {
-      fprintf(stderr, "Well-formedness checks failed! (see error messages above)\n");
+      fprintf_error(stderr, "Well-formedness checks failed! (see error messages above)\n");
       if (verbosity_level > 1) st_tree_print(tree);
       scribble_print(tree);
       st_node_reset_markedflag(tree->root);
@@ -133,6 +144,7 @@ int main(int argc, char *argv[])
 
   if (project_role != NULL) {
     if (verbosity_level > 0) fprintf(stderr, "Projection for %s\n", project_role);
+    st_node_normalise(tree->root);
     st_tree *local_tree = scribble_project(tree, project_role);
     if (verbosity_level > 1) st_tree_print(local_tree);
     if (local_tree->root != NULL) {
@@ -140,7 +152,7 @@ int main(int argc, char *argv[])
       if (verbosity_level > 2) st_tree_print(local_tree);
       scribble_print(local_tree);
     } else {
-      fprintf(stderr, "ERROR: Cannot project for %s.\n", project_role);
+      fprintf_error(stderr, "Cannot project for %s.\n", project_role);
     }
   }
 

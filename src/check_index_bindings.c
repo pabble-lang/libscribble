@@ -17,6 +17,7 @@
 #include <sesstype/st_node_print.h>
 #endif
 #include "scribble/check.h"
+#include "scribble/print_utils.h"
 
 #define NO_INDEX -1
 
@@ -44,8 +45,7 @@ static int check_expr(st_expr *e, unsigned int paramidx, env_t *env, unsigned in
   env_t *cur_env = NULL;
 #ifdef __DEBUG__
   fprintf(stderr, "\n%s:%d:%s(", __FILE__, __LINE__, __FUNCTION__);
-  st_expr_print(e);
-  fflush(stdout);
+  st_expr_fprint(stderr, e);
   fprintf(stderr, ", syms[], level=%d)\n", level);
 
   fprintf(stderr, "------ Vars ------ @ %u\n", level);
@@ -66,13 +66,16 @@ static int check_expr(st_expr *e, unsigned int paramidx, env_t *env, unsigned in
       while (cur_env != NULL) {
         for (int j=0; j<cur_env->count; j++) {
           if (strcmp(e->var, cur_env->vars[j].name) == 0
+              && paramidx != NO_INDEX
               && (cur_env->vars[j].paramidx == NO_INDEX || cur_env->vars[j].paramidx == paramidx)) {
+            return 0;
+          } else if (strcmp(e->var, cur_env->vars[j].name) == 0 && paramidx == NO_INDEX) {
             return 0;
           }
         }
         cur_env = cur_env->parent;
       }
-      fprintf(stderr, "Error: binding variable not found for %s.\n", e->var);
+      fprintf_error(stderr, "Error: binding variable not found for %s.\n", e->var);
       return 1;
 
     case ST_EXPR_TYPE_ADD:
@@ -89,7 +92,7 @@ static int check_expr(st_expr *e, unsigned int paramidx, env_t *env, unsigned in
       return 0;
 
     default:
-      fprintf(stderr,
+      fprintf_error(stderr,
           "%s:%d %s Unknown expr type: %d\n",
           __FILE__, __LINE__, __FUNCTION__, e->type);
   }
@@ -132,13 +135,13 @@ static int check_node(st_node *node, env_t *env, unsigned int level)
   switch (node->type) {
 
     case ST_NODE_SEND:
-      fprintf(stderr,
+      fprintf_error(stderr,
           "%s:%d %s Global protocol should not contain SEND statements\n",
           __FILE__, __LINE__, __FUNCTION__);
       break;
 
     case ST_NODE_RECV:
-      fprintf(stderr,
+      fprintf_error(stderr,
           "%s:%d %s Global protocol should not contain RECV statements\n",
           __FILE__, __LINE__, __FUNCTION__);
       break;
@@ -149,6 +152,11 @@ static int check_node(st_node *node, env_t *env, unsigned int level)
           "%s:%d:%s Checking SENDRECV node, dimen = %d\n",
           __FILE__, __LINE__, __FUNCTION__, node->interaction->from->dimen);
 #endif
+      for (int i=0; i<node->interaction->msgsig.npayload; i++) {
+        if (node->interaction->msgsig.payloads[i].expr!=NULL) { // Check parametric payload type
+          error |= check_expr(node->interaction->msgsig.payloads[i].expr, NO_INDEX, this_env, level);
+        }
+      }
       for (int i=0; i<node->interaction->from->dimen; i++) {
         if (node->interaction->from->param[i]->type == ST_EXPR_TYPE_RNG) {
           this_env->vars = (struct env_entry *)realloc(this_env->vars, sizeof(struct env_entry) * (this_env->count+1));
@@ -204,7 +212,7 @@ static int check_node(st_node *node, env_t *env, unsigned int level)
       break;
 
     default:
-      fprintf(stderr,
+      fprintf_error(stderr,
           "%s:%d %s Unknown node type: %d\n",
           __FILE__, __LINE__, __FUNCTION__, node->type);
       break;
@@ -240,8 +248,8 @@ int scribble_check_bound_indices(st_tree *tree)
   fprintf(stderr, "%s:%d:%s\n", __FILE__, __LINE__, __FUNCTION__);
 #endif
 
-  if (tree->info->type != ST_TYPE_GLOBAL) {
-    fprintf(stderr, "%s:%d %s Given protocol is not global protocol\n", __FILE__, __LINE__, __FUNCTION__);
+  if (tree->info->type != ST_TREE_GLOBAL) {
+    fprintf_error(stderr, "%s:%d %s Given protocol is not global protocol\n", __FILE__, __LINE__, __FUNCTION__);
     return 1; // Cannot check so always return error
   }
 
@@ -260,6 +268,7 @@ int scribble_check_bound_indices(st_tree *tree)
   free(env->vars);
   free(env);
 
+  if (!error) fprintf_info(stderr, "Index binding check complete\n");
   return error;
 }
 

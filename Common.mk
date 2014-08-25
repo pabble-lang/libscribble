@@ -17,7 +17,7 @@ RELEASE := -O3
 PROFILE := -g -pg
 
 MPICC   := mpicc
-CFLAGS  := -Wall -I$(INCLUDE_DIR) -m64 -fPIC $(RELEASE)
+CFLAGS  := -Wall -I$(INCLUDE_DIR) -m64 -fPIC $(RELEASE) -DSCRIBBLE_TOOL
 LDFLAGS := -L$(LIB_DIR) -lsesstype
 
 # Other options

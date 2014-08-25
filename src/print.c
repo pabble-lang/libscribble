@@ -15,6 +15,7 @@
 
 #include <sesstype/st_node.h>
 #include "scribble/print.h"
+#include "scribble/print_utils.h"
 
 
 int scribble_colour_mode(int colour_mode)
@@ -39,9 +40,10 @@ void scribble_fprintf(FILE *stream, const char *format, ...)
   const char *scribble_keywords[] = {
     "and", "as", "at", "by",
     "catch", "choice", "continue", "create", "do",
-    "enter", "for", "from",
+    "enter", "foreach", "from",
     "import", "instantiates",
     "interruptible",
+    "module",
     "or", "par",
     "rec",
     "spawns", "throw", "to",
@@ -104,9 +106,9 @@ void scribble_fprintf(FILE *stream, const char *format, ...)
       i++;
     }
     if (found) {
-      fprintf(stream, "\033[1;33m%s\033[0m ", token);
+      fprint_keyword(stream, token);
     } else if (found2) {
-      fprintf(stream, "\033[1;32m%s\033[0m ", token);
+      fprint_keyword2(stream, token);
     } else {
       if (NULL != strchr(token, '\n') || NULL != strchr(token, '}')) {
         // w/o trailing space
@@ -131,7 +133,9 @@ void scribble_fprint_node(FILE *stream, st_node *node, int indent)
     case ST_NODE_CONTINUE:  scribble_fprint_continue(stream, node, indent);  break;
     case ST_NODE_FOR:       scribble_fprint_for(stream, node, indent);       break;
     case ST_NODE_ALLREDUCE: scribble_fprint_allreduce(stream, node, indent); break;
+#ifdef PABBLE_DYNAMIC
     case ST_NODE_ONEOF:     scribble_fprint_oneof(stream, node, indent);     break;
+#endif
     case ST_NODE_IFBLK:     scribble_fprint_ifblk(stream, node, indent);     break;
     default:
       fprintf(stderr, "%s:%d %s Unknown node type: %d\n", __FILE__, __LINE__, __FUNCTION__, node->type);
@@ -227,16 +231,33 @@ void scribble_fprint_expr(FILE *stream, st_expr *expr)
   };
 }
 
+void scribble_fprint_msgsig(FILE *stream, st_node_msgsig_t msgsig)
+{
+  scribble_fprintf(stream, "%s(", msgsig.op == NULL? "" : msgsig.op);
+  for (int p=0; p<msgsig.npayload; p++) {
+    if (p!=0) scribble_fprintf(stream, ", ");
+    if (msgsig.payloads[p].name != NULL) {
+      scribble_fprintf(stream, "%s:", msgsig.payloads[p].name);
+    }
+    scribble_fprintf(stream, "%s", msgsig.payloads[p].type);
+    if (msgsig.payloads[p].expr != NULL) {
+      scribble_fprintf(stream, "[");
+      scribble_fprint_expr(stream, msgsig.payloads[p].expr);
+      scribble_fprintf(stream, "]");
+    }
+  }
+  scribble_fprintf(stream, ")");
+}
 
 void scribble_fprint_message(FILE *stream, st_node *node, int indent)
 {
   assert(node != NULL && node->type == ST_NODE_SENDRECV);
   for (int i=0; i<indent; ++i) scribble_fprintf(stream, "  ");
 
+  scribble_fprint_msgsig(stream, node->interaction->msgsig);
+
   // From
-  scribble_fprintf(stream, "%s(%s) from ",
-      node->interaction->msgsig.op == NULL? "" : node->interaction->msgsig.op,
-      node->interaction->msgsig.payload == NULL? "" : node->interaction->msgsig.payload);
+  scribble_fprintf(stream, " from ");
   scribble_fprint_role(stream, node->interaction->from);
 
   // To
@@ -263,9 +284,8 @@ void scribble_fprint_send(FILE *stream, st_node *node, int indent)
     scribble_fprintf(stream, " ");
   }
 
-  scribble_fprintf(stream, "%s(%s) to ",
-      node->interaction->msgsig.op == NULL? "" : node->interaction->msgsig.op,
-      node->interaction->msgsig.payload == NULL? "" : node->interaction->msgsig.payload);
+  scribble_fprint_msgsig(stream, node->interaction->msgsig);
+  scribble_fprintf(stream, " to ");
 
   // To
   for (int r=0; r<node->interaction->nto; ++r) {
@@ -291,9 +311,8 @@ void scribble_fprint_recv(FILE *stream, st_node *node, int indent)
   }
 
   // From
-  scribble_fprintf(stream, "%s(%s) from ",
-      node->interaction->msgsig.op == NULL? "" : node->interaction->msgsig.op,
-      node->interaction->msgsig.payload == NULL? "" : node->interaction->msgsig.payload);
+  scribble_fprint_msgsig(stream, node->interaction->msgsig);
+  scribble_fprintf(stream, " from ");
   scribble_fprint_role(stream, node->interaction->from);
 
   scribble_fprintf(stream, ";%s\n", node->marked ? " // <- HERE" : "");
@@ -383,13 +402,13 @@ void scribble_fprint_allreduce(FILE *stream, st_node *node, int indent)
 {
   assert(node != NULL && node->type == ST_NODE_ALLREDUCE);
   for (int i=0; i<indent; ++i) scribble_fprintf(stream, "  ");
-  scribble_fprintf(stream, "allreduce %s(%s);%s\n",
-      node->interaction->msgsig.op == NULL? "" : node->interaction->msgsig.op,
-      node->interaction->msgsig.payload == NULL? "" : node->interaction->msgsig.payload,
-      node->marked ? " /* HERE */" : "");
+  scribble_fprintf(stream, "allreduce ");
+  scribble_fprint_msgsig(stream, node->interaction->msgsig);
+  scribble_fprintf(stream, "; %s\n", node->marked ? " /* HERE */" : "");
 }
 
 
+#ifdef PABBLE_DYNAMIC
 void scribble_fprint_oneof(FILE *stream, st_node *node, int indent)
 {
   assert(node != NULL && node->type == ST_NODE_ONEOF);
@@ -406,6 +425,7 @@ void scribble_fprint_oneof(FILE *stream, st_node *node, int indent)
   }
   scribble_fprintf(stream, "\n");
 }
+#endif
 
 
 void scribble_fprint_ifblk(FILE *stream, st_node *node, int indent)
@@ -433,7 +453,7 @@ void scribble_fprint_root(FILE *stream, st_node *node, int indent)
   }
 
   for (int i=0; i<indent; ++i) scribble_fprintf(stream, "  ");
-  scribble_fprintf(stream, "}");
+  scribble_fprintf(stream, "}\n");
 }
 
 
@@ -465,7 +485,7 @@ void scribble_fprint(FILE *stream, st_tree *tree)
             tree->info->consts[k]->bounds.ubound);
         break;
       case ST_CONST_INF:
-        scribble_fprintf(stream, " = %u..inf;\n",
+        scribble_fprintf(stream, " = %u..max;\n",
             tree->info->consts[k]->inf.lbound);
         break;
       default:
@@ -474,9 +494,9 @@ void scribble_fprint(FILE *stream, st_tree *tree)
     }
   }
 
-  if (ST_TYPE_GLOBAL == tree->info->type) {
+  if (ST_TREE_GLOBAL == tree->info->type) {
     scribble_fprintf(stream, "global protocol %s ", tree->info->name);
-  } else if (ST_TYPE_LOCAL == tree->info->type) {
+  } else if (ST_TREE_LOCAL == tree->info->type) {
     scribble_fprintf(stream, "local protocol %s at ", tree->info->name);
     scribble_fprint_role(stream, tree->info->myrole);
   } else assert(0/* unrecognised type */);

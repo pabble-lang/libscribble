@@ -9,6 +9,8 @@
 
 #include <sesstype/st_node.h>
 
+#define ST_ROLE_ALL "__All"
+
 /**
  * Checks whether roles are defined.
  *
