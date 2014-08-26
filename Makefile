@@ -13,6 +13,9 @@ libscribble:
 tool:
 	$(MAKE) --dir=src tool
 
+updateversion:
+	utils/update-ver.sh
+
 libscribble.a: libscribble
 	$(RM) $(LIB_DIR)/$@
 	$(AR) $(ARFLAGS) $(BUILD_DIR)/$@ $(BUILD_DIR)/*.o

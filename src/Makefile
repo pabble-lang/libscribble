@@ -5,6 +5,7 @@
 ROOT := ..
 include $(ROOT)/Common.mk
 
+
 all: sharedlib objs
 
 objs: $(BUILD_DIR)/parser.o $(BUILD_DIR)/lexer.o \
@@ -14,6 +15,7 @@ objs: $(BUILD_DIR)/parser.o $(BUILD_DIR)/lexer.o \
 sharedlib: $(BUILD_DIR)/scribble_parser.so $(BUILD_DIR)/scribble_lexer.so $(BUILD_DIR)/scribble_check.so $(BUILD_DIR)/scribble_print.so $(BUILD_DIR)/scribble_print_utils.so $(BUILD_DIR)/scribble_project.so
 
 tool: objs parser-tool.c scribble-tool.c
+	$(MAKE) --dir=../ updateversion
 	$(CC) $(CFLAGS) parser-tool.c \
 	  $(BUILD_DIR)/parser.o $(BUILD_DIR)/lexer.o \
 	  -o $(BIN_DIR)/parser-tool $(LDFLAGS)
