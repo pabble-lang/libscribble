@@ -1,3 +1,9 @@
+libscribble (1.4.1~scribble0.3+pabble) unstable; urgency=low
+
+  * Minor bugfix
+
+ -- Nicholas Ng <nickng@doc.ic.ac.uk>  Sun, 31 Aug 2014 23:00:00 +0000
+
 libscribble (1.4.0~scribble0.3+pabble) unstable; urgency=low
 
   * Support multiple payload type per message

@@ -55,7 +55,9 @@ comment                 "//"([^\n])*\n
 "if"                    { DEBUG_PRINT("Token: IF '%s'\n");            return IF;            } /* Pabble */
 "import"                { DEBUG_PRINT("Token: IMPORT '%s'\n");        return IMPORT;        }
 "in"                    { DEBUG_PRINT("Token: IN '%s'\n");            return IN;            } /* Pabble dynamic */
-"inf"                   { DEBUG_PRINT("Token: INFinity '%s'\n");      return INF;           } /* Pabble */
+"inf"                   { DEBUG_PRINT("Token: INFinity '%s'\n");
+                          fprintf(stderr, "inf keyword is deprecated. Use max instead.");
+                                                                      return INF;           } /* Pabble */
 "instantiates"          { DEBUG_PRINT("Token: INSTANTIATES '%s'\n");  return INSTANTIATES;  }
 "interruptible"         { DEBUG_PRINT("Token: INTERRUPTIBLE '%s'\n"); return INTERRUPTIBLE; }
 "is"                    { DEBUG_PRINT("Token: IS '%s'\n");            return IS;            } /* Pabble */

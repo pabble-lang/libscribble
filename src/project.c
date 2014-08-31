@@ -18,7 +18,7 @@
 #include "scribble/print_utils.h"
 
 #ifdef SCRIBBLE_TOOL
-extern int scribble_codegen_mode;
+int scribble_codegen_mode;
 #endif
 
 st_node *scribble_project_root(st_tree *tree, st_node *node, char *projectrole, st_expr_list *env)

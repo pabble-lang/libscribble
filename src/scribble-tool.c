@@ -10,16 +10,17 @@
 #include <sesstype/st_normalise.h>
 
 #include "scribble/check.h"
+#include "scribble/parser.h"
 #include "scribble/print.h"
 #include "scribble/print_utils.h"
 #include "scribble/project.h"
 
-#define SCRIBBLE_TOOL_VERSION "1.4.0~scribble0.3+pabble"
+#define SCRIBBLE_TOOL_VERSION "1.4.1~scribble0.3+pabble"
 
 extern int yyparse(st_tree *tree);
 extern FILE *yyin;
 
-int scribble_codegen_mode;
+extern int scribble_codegen_mode;
 
 
 int main(int argc, char *argv[])
@@ -98,7 +99,7 @@ int main(int argc, char *argv[])
   argv += optind-1;
 
   if (show_version) {
-    fprintf(stderr, "scribble-tool %s\n", SCRIBBLE_TOOL_VERSION);
+    fprintf(stderr, "%s %s\n", argv[0], SCRIBBLE_TOOL_VERSION);
     return EXIT_SUCCESS;
   }
 
