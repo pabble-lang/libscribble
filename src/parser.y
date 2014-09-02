@@ -340,8 +340,8 @@ group_decls :
 group_decl : COMMA GROUP group_name EQUAL LBRACE roles RBRACE { st_tree_add_role_group(tree, st_role_group_set_name($6, $3)); }
            ;
 
-roles :       role_name role_param_decls { $$ = st_role_group_add_role((st_role_group *)malloc(sizeof(st_role_group)), st_role_set_name($2, $1)); }
-      | roles role_name role_param_decls { $$ = st_role_group_add_role($$, st_role_set_name($3, $2)); }
+roles :             role_name role_param_decls { $$ = st_role_group_add_role((st_role_group *)malloc(sizeof(st_role_group)), st_role_set_name($2, $1)); }
+      | roles COMMA role_name role_param_decls { $$ = st_role_group_add_role($$, st_role_set_name($4, $3)); }
       ;
 
 

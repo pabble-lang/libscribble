@@ -15,7 +15,7 @@
 #include "scribble/print_utils.h"
 #include "scribble/project.h"
 
-#define SCRIBBLE_TOOL_VERSION "1.4.1~scribble0.3+pabble"
+#define SCRIBBLE_TOOL_VERSION "1.4.2~scribble0.3+pabble"
 
 extern int yyparse(st_tree *tree);
 extern FILE *yyin;
