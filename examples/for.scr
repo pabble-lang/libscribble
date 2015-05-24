@@ -1,0 +1,7 @@
+module _;
+const N = 2..10;
+global protocol for(role R[1..N]) {
+  foreach (i:1..N-1) {
+    T() from R[i] to R[i+1];
+  }
+}

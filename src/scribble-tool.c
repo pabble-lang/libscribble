@@ -4,6 +4,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <unistd.h>
+#include <stdbool.h>
 
 #include <sesstype/st_node.h>
 #include <sesstype/st_node_print.h>
@@ -15,13 +16,12 @@
 #include "scribble/print_utils.h"
 #include "scribble/project.h"
 
-#define SCRIBBLE_TOOL_VERSION "1.4.2~scribble0.3+pabble"
+#define SCRIBBLE_TOOL_VERSION "1.5.0~scribble0.3+pabble"
 
 extern int yyparse(st_tree *tree);
 extern FILE *yyin;
 
 extern int scribble_codegen_mode;
-
 
 int main(int argc, char *argv[])
 {
@@ -134,7 +134,7 @@ int main(int argc, char *argv[])
 
   if (check) {
     if (verbosity_level > 0) fprintf(stderr, "Well-formedness check\n");
-    if (scribble_check(tree) != 0) {
+    if (!scribble_check(tree)) {
       fprintf_error(stderr, "Well-formedness checks failed! (see error messages above)\n");
       if (verbosity_level > 1) st_tree_print(tree);
       scribble_print(tree);

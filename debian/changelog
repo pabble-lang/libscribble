@@ -1,3 +1,9 @@
+libscribble (1.5.0~scribble0.3+pabble) unstable; urgency=low
+
+  * Replace legacy index bound checking with Z3 model checker
+
+ -- Nicholas Ng <nickng@doc.ic.ac.uk>  Sun, 24 May 2015 22:52:00 +0000
+
 libscribble (1.4.2~scribble0.3+pabble) unstable; urgency=low
 
   * Fix parser bug (not parsing group correctly)

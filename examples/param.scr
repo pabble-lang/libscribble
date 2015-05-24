@@ -1,0 +1,5 @@
+module _;
+const N = 3;
+global protocol param(role A[1..N]) {
+  T() from A[1] to A[3];
+}

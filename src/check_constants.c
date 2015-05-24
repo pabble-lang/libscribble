@@ -8,6 +8,7 @@
  */
 
 #include <assert.h>
+#include <stdbool.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -21,19 +22,19 @@
 static char *inf_const = "inf";
 static st_tree *_tree = NULL;
 
-static int tree_has_inf(st_tree *tree)
+static bool tree_has_inf(st_tree *tree)
 {
-  for (int c=0; c<tree->info->nconst; c++) {
+  for (unsigned int c=0; c<tree->info->nconst; c++) {
     if (tree->info->consts[c]->type == ST_CONST_INF)
-      return 1;
+      return true;
   }
-  return 0;
+  return false;
 }
 
-static int get_inf_count(st_tree *tree)
+static unsigned int get_inf_count(st_tree *tree)
 {
-  int count = 0;
-  for (int i=0; i<tree->info->nconst; i++) {
+  unsigned int count = 0;
+  for (unsigned int i=0; i<tree->info->nconst; i++) {
     if (tree->info->consts[i]->type == ST_CONST_INF) {
       inf_const = strdup(tree->info->consts[i]->name);
       count++;
@@ -42,17 +43,17 @@ static int get_inf_count(st_tree *tree)
   return count;
 }
 
-static int has_inf(st_expr *e)
+static bool has_inf(st_expr *e)
 {
   switch (e->type) {
     case ST_EXPR_TYPE_VAR:
       if (strcmp(e->var, inf_const) == 0) {
         // This branch of expr has inf
-        return 1;
+        return true;
       }
     case ST_EXPR_TYPE_CONST:
     case ST_EXPR_TYPE_SEQ: // Just values
-      return 0;
+      return false;
     case ST_EXPR_TYPE_RNG:
       return has_inf(e->rng->from) || has_inf(e->rng->to);
     case ST_EXPR_TYPE_ADD:
@@ -66,7 +67,7 @@ static int has_inf(st_expr *e)
     default:
       fprintf_error(stderr, "%s:%d Unknown expr type %d\n",
           __FILE__, __LINE__, e->type);
-      return 0;
+      return false;
   }
 }
 
@@ -76,7 +77,7 @@ static int expr_is_valid(st_expr *e)
     case ST_EXPR_TYPE_VAR:
     case ST_EXPR_TYPE_CONST:
     case ST_EXPR_TYPE_SEQ:
-      return 1;
+      return true;
     case ST_EXPR_TYPE_RNG:
       return expr_is_valid(e->rng->from) && expr_is_valid(e->rng->to);
     case ST_EXPR_TYPE_ADD:
@@ -91,20 +92,20 @@ static int expr_is_valid(st_expr *e)
     default:
       fprintf_error(stderr, "%s:%d Unknown expr type %d\n",
           __FILE__, __LINE__, e->type);
-      return 0;
+      return false;
   }
 }
 
-static int node_has_only_valid_exprs(st_node *node)
+static bool node_has_only_valid_exprs(st_node *node)
 {
-  int valid = 1;
+  bool is_valid = true;
 
   switch (node->type) {
     case ST_NODE_SEND:
       for (int i=0; i<node->interaction->nto; i++) {
         if (node->interaction->to[i]->dimen > 0) {
           for (int j=0; j<node->interaction->to[i]->dimen; j++) {
-            valid &= expr_is_valid(node->interaction->to[i]->param[j]);
+            is_valid &= expr_is_valid(node->interaction->to[i]->param[j]);
           }
         }
       }
@@ -112,7 +113,7 @@ static int node_has_only_valid_exprs(st_node *node)
     case ST_NODE_RECV:
       if (node->interaction->from->dimen > 0) {
         for (int j=0; j<node->interaction->from->dimen; j++) {
-          valid &= expr_is_valid(node->interaction->from->param[j]);
+          is_valid &= expr_is_valid(node->interaction->from->param[j]);
         }
       }
       break;
@@ -120,13 +121,13 @@ static int node_has_only_valid_exprs(st_node *node)
       for (int i=0; i<node->interaction->nto; i++) {
         if (node->interaction->to[i]->dimen > 0) {
           for (int j=0; j<node->interaction->to[i]->dimen; j++) {
-            valid &= expr_is_valid(node->interaction->to[i]->param[j]);
+            is_valid &= expr_is_valid(node->interaction->to[i]->param[j]);
           }
         }
       }
       if (node->interaction->from->dimen > 0) {
         for (int j=0; j<node->interaction->from->dimen; j++) {
-          valid &= expr_is_valid(node->interaction->from->param[j]);
+          is_valid &= expr_is_valid(node->interaction->from->param[j]);
         }
       }
       break;
@@ -143,23 +144,23 @@ static int node_has_only_valid_exprs(st_node *node)
           __FILE__, __LINE__, node->type);
   }
   for (int i=0; i<node->nchild; i++) {
-    valid &= node_has_only_valid_exprs(node->children[i]);
+    is_valid &= node_has_only_valid_exprs(node->children[i]);
   }
 
-  return valid;
+  return is_valid;
 }
 
-static int has_add(st_expr *e)
+static bool has_add(st_expr *e)
 {
   switch (e->type) {
     case ST_EXPR_TYPE_VAR:
     case ST_EXPR_TYPE_CONST:
     case ST_EXPR_TYPE_SEQ: // Just values
-      return 0;
+      return false;
     case ST_EXPR_TYPE_RNG:
       return has_add(e->rng->from) || has_add(e->rng->to);
     case ST_EXPR_TYPE_ADD:
-      return 1;
+      return true;
     case ST_EXPR_TYPE_SUB:
     case ST_EXPR_TYPE_MUL:
     case ST_EXPR_TYPE_DIV:
@@ -170,11 +171,11 @@ static int has_add(st_expr *e)
     default:
       fprintf_error(stderr, "%s:%d Unknown expr type %d\n",
           __FILE__, __LINE__, e->type);
-      return 0;
+      return false;
   }
 }
 
-static int param_is_valid(char *name, unsigned int index, st_expr *e)
+static bool param_is_valid(char *name, unsigned int index, st_expr *e)
 {
   if (has_inf(e)) {
     // Strategy 1 (inf): Look for minus (possible for FP)
@@ -194,10 +195,10 @@ static int param_is_valid(char *name, unsigned int index, st_expr *e)
         break;
     }
   }
-  return 0;
+  return false;
 }
 
-int scribble_check_constants(st_tree *tree)
+bool scribble_check_constants(st_tree *tree)
 {
   assert(tree != NULL);
   assert(tree->root != NULL);
@@ -207,15 +208,15 @@ int scribble_check_constants(st_tree *tree)
   if (get_inf_count(tree) > 1) {
     fprintf_error(stderr, "%s:%d %s Error: Given protocol has more than one unbounded constants\n",
         __FILE__, __LINE__, __FUNCTION__);
-    return 1;
+    return false;
   }
 
   if (!node_has_only_valid_exprs(tree->root)) {
     fprintf_error(stderr, "%s:%d %s Error: Expressions found containing non +/- operations\n",
         __FILE__, __LINE__, __FUNCTION__);
-    return 1;
+    return false;
   }
 
   fprintf_info(stderr, "Constants check complete\n");
-  return 0;
+  return true;
 }

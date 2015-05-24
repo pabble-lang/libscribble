@@ -1,0 +1,4 @@
+module _;
+global protocol simple(role A, role B) {
+  T() from A to B;
+}

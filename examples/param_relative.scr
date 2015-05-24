@@ -1,0 +1,5 @@
+module _;
+const N = 3;
+global protocol param_relative(role R[1..N]) {
+  T() from R[i:1..1+N-1] to R[i];
+}

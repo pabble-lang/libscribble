@@ -1,0 +1,3 @@
+module _;
+global protocol empty(role A, role B) {
+}

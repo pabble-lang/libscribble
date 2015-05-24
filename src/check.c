@@ -12,28 +12,24 @@
  */
 
 #include <stdio.h>
+#include <stdbool.h>
 
 #include <sesstype/st_node.h>
 #include "scribble/check.h"
 #include "scribble/print_utils.h"
 
 
-int scribble_check(st_tree *tree)
+bool scribble_check(st_tree *tree)
 {
-  if (scribble_check_defined_roles(tree)) {
-    fprintf_error(stderr, "Error: Not all roles referenced are defined\n");
-    return 1;
-  }
-
-  if (scribble_check_constants(tree)) {
+  if (!scribble_check_constants(tree)) {
     fprintf_error(stderr, "Error: Constants well-formedness conditions not satisfied\n");
-    return 1;
+    return false;
   }
 
-  if (scribble_check_bound_indices(tree)) {
+  if (!pabble_check_indices(tree)) {
     fprintf_error(stderr, "Error: Index binding well-formedness conditions not satisfied\n");
-    return 1;
+    return false;
   }
 
-  return 0;
+  return true;
 }
