@@ -53,6 +53,10 @@ static bool role_is_defined(st_role *role)
     }
   }
 
+  if (!is_defined) {
+    fprintf_error(stderr, "Role %s/%u is not defined \n", role->name, role->dimen);
+  }
+
   return is_defined;
 }
 

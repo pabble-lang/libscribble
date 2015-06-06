@@ -1,5 +1,5 @@
 module _;
 const N = 10;
 global protocol multidimen(role R[1..N][1..N][1..N][1..N]) {
-  T() from R[i:1..N-1][j:1..N-1][k:1..N-1] to R[i+1][j][k+1];
+  T() from R[i:1..N-1][j:1..N-1][k:1..N-1][k:1] to R[i+1][j][k+1][k];
 }
