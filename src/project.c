@@ -662,6 +662,7 @@ st_tree *scribble_project(st_tree *global, char *projectrole)
   st_tree *local = st_tree_init((st_tree *)malloc(sizeof(st_tree)));
 
   st_tree_set_module(local, global->info->module);
+  local->info->name = NULL;
   st_tree_set_name(local, global->info->name);
   local->info->type = ST_TREE_LOCAL;
 
@@ -714,7 +715,7 @@ st_tree *scribble_project(st_tree *global, char *projectrole)
   }
 
   local->info->ngroup--;
-  free(local->info->groups[local->info->ngroup]);
+  //free(local->info->groups[local->info->ngroup]);
 
   free(g->membs);
   free(g);

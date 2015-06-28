@@ -12,12 +12,15 @@
 
 #include <z3.h>
 
-
 typedef struct __scope_var {
   char const *forall_var;
+  st_expr *from;
+  st_expr *to;
   Z3_ast ast;
   struct __scope_var *parent;
 } scope_var;
+
+extern int scribble_codegen_mode;
 
 static scope_var *cur_scope;
 static const st_info *_info;
@@ -31,9 +34,11 @@ static Z3_context _ctx;
 /** Forward declarations **/
 
 static Z3_ast expr2ast(const st_expr *expr);
+static bool scope_push_inf(const char *var, unsigned int lbound);
 static bool scope_push_rng(st_rng_expr_t *range_expr);
-static bool scope_push_assign(const char *var, const st_expr *range_expr);
+static bool scope_push_assign(const char *var, st_expr *range_expr);
 static bool z3prove(Z3_ast f);
+static bool z3prove_iterative(Z3_ast f);
 
 
 static bool role_is_defined(st_role *role)
@@ -46,11 +51,17 @@ static bool role_is_defined(st_role *role)
       if (role->dimen == _info->roles[r]->dimen) {
         is_defined = true;
 #ifdef __DEBUG__
-        fprintf(stderr, "Found matching role [%s/%u].\n", role->name, role->dimen);
+        fprintf_info(stderr, "Found matching role [%s/%u].\n", role->name, role->dimen);
 #endif
         break;
       }
     }
+  }
+
+  if (   (scribble_codegen_mode && strncmp(role->name, "__self", 6) == 0)
+      || (scribble_codegen_mode && strncmp(role->name, "__All", 5) == 0)) {
+    fprintf_info(stderr, "%s role have special meaning in (codegen mode)\n", role->name);
+    is_defined = true;
   }
 
   if (!is_defined) {
@@ -70,7 +81,7 @@ static bool role_group_is_defined(st_role *role)
       assert(role->dimen == 0 /* Groups should not have dimensions */ );
       is_defined = true;
 #ifdef __DEBUG__
-      fprintf(stderr, "Found matching group [%s].\n", role->name);
+      fprintf_info(stderr, "Found matching group [%s].\n", role->name);
 #endif
       break;
     }
@@ -124,7 +135,7 @@ static Z3_ast expr2ast(const st_expr *e)
       return Z3_mk_rem(_ctx, expr2ast(e->bin->left), expr2ast(e->bin->right));
 
     case ST_EXPR_TYPE_SHL: // x << y
-      return Z3_mk_mul(_ctx, 2, (Z3_ast[]){
+        return Z3_mk_mul(_ctx, 2, (Z3_ast[]){
           expr2ast(e->bin->left),
           Z3_mk_power(_ctx, INT_VAL(2), expr2ast(e->bin->right))
         });
@@ -149,52 +160,79 @@ static Z3_ast expr2ast(const st_expr *e)
   }
 }
 
-static bool scope_push_rng(st_rng_expr_t *rng_def)
-{
-  // Check if variable already defined
-  const scope_var *scope = cur_scope;
-  while (scope != NULL) {
-    if (scope->forall_var != NULL && strcmp(scope->forall_var, rng_def->bindvar) == 0) {
-      fprintf_error(stderr, "%s:%d(%s): Ambiguous index variable %s\n",
-          __FILE__, __LINE__, __FUNCTION__, rng_def->bindvar);
-      return false;
-    }
-    scope = scope->parent;
-  }
-
-  // Allocate a new scope
-  scope_var *new_scope = (scope_var *)malloc(sizeof(scope_var));
-  new_scope->forall_var = rng_def->bindvar; // ref.
-  new_scope->ast = Z3_mk_and(_ctx, 2, (Z3_ast[]){
-      Z3_mk_le(_ctx, expr2ast(rng_def->from), INT_VAR(rng_def->bindvar)),
-      Z3_mk_le(_ctx, INT_VAR(rng_def->bindvar), expr2ast(rng_def->to))
-    });
-  new_scope->parent = cur_scope;
-  cur_scope = new_scope;
-
-  return true;
-}
-
-static bool scope_push_assign(const char *var, const st_expr *assign_expr)
+static bool scope_var_is_fresh(const char *var)
 {
   // Check if variable already defined
   scope_var const *scope = cur_scope;
   while (scope != NULL) {
     if (scope->forall_var != NULL && strcmp(scope->forall_var, var) == 0) {
-      fprintf_error(stderr, "%s:%d %s: Ambiguous index variable __\n",
-          __FILE__, __LINE__, __FUNCTION__);
+      fprintf_error(stderr, "%s:%d %s: Ambiguous index variable %s\n",
+          __FILE__, __LINE__, __FUNCTION__, var);
       return false;
     }
     scope = scope->parent;
   }
+  return true;
+}
 
+static bool scope_push_inf(const char *var, unsigned int lbound)
+{
+  if (!scope_var_is_fresh(var)) return false;
 
   // Allocate a new scope
   scope_var *new_scope = (scope_var *)malloc(sizeof(scope_var));
-  new_scope->forall_var = NULL; // No \forall
-  new_scope->ast = Z3_mk_eq(_ctx, INT_VAR(var), expr2ast(assign_expr));
+  new_scope->forall_var = strdup(var); // ref.
+  // ---
+  new_scope->from = st_expr_constant(lbound);
+  // ---
+  new_scope->ast = Z3_mk_le(_ctx, INT_VAL(lbound), INT_VAR(var));
   new_scope->parent = cur_scope;
   cur_scope = new_scope;
+
+  fprintf_info(stderr, "Adding inf constant %s as %s\n", var, Z3_ast_to_string(_ctx, new_scope->ast));
+
+  return true;
+}
+
+static bool scope_push_rng(st_rng_expr_t *rng_def)
+{
+  if (!scope_var_is_fresh(rng_def->bindvar)) return false;
+
+  // Allocate a new scope
+  scope_var *new_scope = (scope_var *)malloc(sizeof(scope_var));
+  new_scope->forall_var = rng_def->bindvar; // ref.
+  // ---
+  new_scope->from = rng_def->from;
+  new_scope->to = rng_def->to;
+  // ---
+  new_scope->ast = Z3_mk_and(_ctx, 2, (Z3_ast[]){
+      Z3_mk_le(_ctx, expr2ast(rng_def->from), INT_VAR(rng_def->bindvar)),
+      Z3_mk_le(_ctx, INT_VAR(rng_def->bindvar), expr2ast(rng_def->to))
+  });
+  new_scope->parent = cur_scope;
+  cur_scope = new_scope;
+
+  fprintf_info(stderr, "Adding rng constant %s as %s\n", rng_def->bindvar, Z3_ast_to_string(_ctx, new_scope->ast));
+
+  return true;
+}
+
+static bool scope_push_assign(const char *var, st_expr *assign_expr)
+{
+  if (!scope_var_is_fresh(var)) return false;
+
+  // Allocate a new scope
+  scope_var *new_scope = (scope_var *)malloc(sizeof(scope_var));
+  new_scope->forall_var = NULL; //NULL; // No \forall
+  new_scope->ast = Z3_mk_eq(_ctx, INT_VAR(var), expr2ast(assign_expr));
+  // ---
+  new_scope->from = assign_expr;
+  new_scope->to = assign_expr;
+  // ---
+  new_scope->parent = cur_scope;
+  cur_scope = new_scope;
+
+  fprintf_info(stderr, "Adding assign constant %s as %s\n", var, Z3_ast_to_string(_ctx, new_scope->ast));
 
   return true;
 }
@@ -211,6 +249,43 @@ static void scope_pop()
     // free scope->ast;
     free(scope);
   }
+}
+
+static bool node_is_valid_relative(st_node *node, unsigned int dimen)
+{
+  bool is_valid = true;
+  // Add \forall x.(A<=x<=B)
+  is_valid &= scope_push_rng(node->interaction->from->param[dimen]->rng);
+
+  // T from R[x:A..B] to R[y], R[z] --> check_bounds(R, x)
+  is_valid &= z3prove(check_bounds(node->interaction->from->name, dimen,
+        INT_VAR(node->interaction->from->param[dimen]->rng->bindvar)));
+
+  for (int t=0; t<node->interaction->nto; t++) {
+    if (node->interaction->to[t]->dimen == node->interaction->from->dimen) {
+
+      // Add x'=y
+      char *tmp_name = (char *)calloc(
+          strlen(node->interaction->from->param[dimen]->rng->bindvar)+2,
+          sizeof(char));
+      sprintf(tmp_name, "%s'", node->interaction->from->param[dimen]->rng->bindvar);
+      is_valid &= scope_push_assign(tmp_name, node->interaction->to[t]->param[dimen]);
+
+      // T from R[x:A..B] to R[y], R[z] --> check_bounds(R, x'=y)
+      //                                    check_bounds(R, x'=z)
+      // To prove:
+      is_valid &= z3prove(check_bounds(node->interaction->to[t]->name, dimen,
+            INT_VAR(tmp_name)));
+      free(tmp_name);
+
+      scope_pop(); // Pop to-parameter scope.
+
+    } else { // Reject if to-roles do not have same dimension
+      is_valid = false;
+    }
+  }
+  scope_pop();
+  return is_valid;
 }
 
 static bool node_is_valid(st_node *node)
@@ -230,33 +305,8 @@ static bool node_is_valid(st_node *node)
             for (unsigned int i=0; i<node->interaction->from->dimen; i++) {
               switch (node->interaction->from->param[i]->type) {
                 case ST_EXPR_TYPE_RNG:
-                  // Add \forall x.(A<=x<=B)
-                  is_valid &= scope_push_rng(node->interaction->from->param[i]->rng);
-
-                  // T from R[x:A..B] to R[y], R[z] --> check_bounds(R, x)
-                  is_valid &= z3prove(check_bounds(node->interaction->from->name, i, INT_VAR(node->interaction->from->param[i]->rng->bindvar)));
-
-                  for (int t=0; t<node->interaction->nto; t++) {
-                    if (node->interaction->to[t]->dimen == node->interaction->from->dimen) {
-
-                      // Add x'=y
-                      char *tmp_name = (char *)calloc(strlen(node->interaction->from->param[i]->rng->bindvar)+2, sizeof(char));
-                      sprintf(tmp_name, "%s'", node->interaction->from->param[i]->rng->bindvar);
-                      is_valid &= scope_push_assign(tmp_name, node->interaction->to[t]->param[i]);
-
-                      // T from R[x:A..B] to R[y], R[z] --> check_bounds(R, x'=y)
-                      //                                    check_bounds(R, x'=z)
-                      // To prove:
-                      is_valid &= z3prove(check_bounds(node->interaction->to[t]->name, i, INT_VAR(tmp_name)));
-                      free(tmp_name);
-
-                      scope_pop(); // Pop to-parameter scope.
-
-                    } else { // Reject if to-roles do not have same dimension
-                      is_valid = false;
-                    }
-                  }
-                  scope_pop();
+                  is_valid &= node_is_valid_relative(node, i);
+                  if (!is_valid) st_node_print(node, 0);
                   break;
                 case ST_EXPR_TYPE_CONST:
                 case ST_EXPR_TYPE_VAR:
@@ -265,15 +315,26 @@ static bool node_is_valid(st_node *node)
                 case ST_EXPR_TYPE_MUL:
                 case ST_EXPR_TYPE_DIV:
                 case ST_EXPR_TYPE_MOD:
+                  // T from R[x] to R[y], R[z];
+                  //     --> check_bounds(R, x)
+                  is_valid &= z3prove(check_bounds(node->interaction->from->name,
+                        i, expr2ast(node->interaction->from->param[i])));
+
+                  for (unsigned int t=0; t<node->interaction->nto; t++) {
+                    // T from R[x] to R[y], R[z];
+                    //     --> check_bounds(R, y), check_bounds(R, z);
+                    is_valid &= ( (strcmp(node->interaction->to[t]->name, "__All") == 0)
+                               || z3prove(check_bounds(node->interaction->to[t]->name, i, expr2ast(node->interaction->to[t]->param[i]))));
+                  }
+                  break;
                 case ST_EXPR_TYPE_SHL:
                 case ST_EXPR_TYPE_SHR:
-                  // T from R[x] to R[y], R[z]; --> check_bounds(R, x)
-                  is_valid &= z3prove(check_bounds(node->interaction->from->name, i, expr2ast(node->interaction->from->param[i])));
-
-                  for (int t=0; t<node->interaction->nto; t++) {
-                    // T from R[x] to R[y], R[z]; --> check_bounds(R, y), check_bounds(R, z);
-                    is_valid &= z3prove(check_bounds(node->interaction->to[t]->name, i, expr2ast(node->interaction->to[t]->param[i])));
-                  }
+                  // Note: Z3 cannot handle exponentials instead of check_bounds
+                  //       instantiate the expression and check index-by-index
+                  is_valid &= z3prove(check_bounds(node->interaction->from->name,
+                        i, expr2ast(/*Try to evaluate it*/
+                          node->interaction->from->param[i])));
+                  fprintf(stderr, "Try to evaluate expression first\n");
                   break;
                 default:
                   assert(0 /* Unknown expression type */);
@@ -359,6 +420,74 @@ static bool prove(Z3_context ctx, Z3_ast f, Z3_bool expect_valid)
   return is_valid;
 }
 
+static bool z3prove_iterative(Z3_ast f)
+{
+  fprintf_error(stderr, " (TODO) Iterative mode\n");
+  bool is_valid = false;
+
+  // Setup implication conditions.
+  const scope_var *scope = cur_scope;
+
+  unsigned int scope_count = 0;
+  while (scope != NULL) {
+    scope = scope->parent;
+    scope_count++;
+  }
+
+  int scope_range_offsets[scope_count];
+  Z3_ast and_stmts[scope_count];
+  for (int i=0; i<scope_count; i++) {
+    scope_range_offsets[i] = 0;
+  }
+
+  unsigned int scope_idx = 0;
+  unsigned int cur_scope_idx = 0;
+  scope = cur_scope;
+  while (scope_idx < scope_count) {
+    if (scope->forall_var != NULL) {
+      if (cur_scope_idx == scope_idx) { // This is the scope we are changing
+        if (scope->from->type == ST_EXPR_TYPE_CONST && scope->to->type   == ST_EXPR_TYPE_CONST) {
+          // Move to next scope if we are full
+          if (scope_range_offsets[scope_idx] < (scope->to->num - scope->from->num)) {
+            and_stmts[scope_idx] = Z3_mk_eq(_ctx, INT_VAR(scope->forall_var),
+                Z3_mk_add(_ctx, 2, (Z3_ast[]){ scope->ast, INT_VAL(scope_range_offsets[scope_idx]) }));
+            cur_scope_idx++;
+          } else {
+            and_stmts[scope_idx] = Z3_mk_eq(_ctx, INT_VAR(scope->forall_var),
+                Z3_mk_add(_ctx, 2, (Z3_ast[]){ scope->ast, INT_VAL(scope_range_offsets[scope_idx]) }));
+            scope_range_offsets[scope_idx]++;
+          }
+
+        } else { // Cannot convert from/to to numbers so skip scope
+          and_stmts[scope_idx] = Z3_mk_eq(_ctx, INT_VAR(scope->forall_var),
+              Z3_mk_add(_ctx, 2, (Z3_ast[]){ scope->ast, INT_VAL(scope_range_offsets[scope_idx]) }));
+          cur_scope_idx++;
+        }
+      } else { // This is not the scope we are changing
+        // Just AND the AST + counts[scope_level]
+        and_stmts[scope_idx] = Z3_mk_eq(_ctx, INT_VAR(scope->forall_var),
+            Z3_mk_add(_ctx, 2, (Z3_ast[]){ scope->ast, INT_VAL(scope_range_offsets[scope_idx]) }));
+      }
+    } else { // Not range
+      and_stmts[scope_idx] = scope->ast;
+    }
+    scope = scope->parent;
+    scope_idx++;
+  }
+
+  fprintf_error(stderr, "Preparing to use AST\n---%s\n---\n",
+      Z3_ast_to_string(_ctx, Z3_mk_and(_ctx, scope_count, and_stmts)));
+  Z3_ast to_prove = Z3_mk_implies(_ctx, Z3_mk_and(_ctx, scope_count, and_stmts), f);
+
+  if (!(is_valid = prove(_ctx, to_prove, Z3_L_FALSE))) {
+    fprintf_error(stderr, "%s:%d %s: Unable to prove constraints valid in iterative mode (see above).\n",
+        __FILE__, __LINE__, __FUNCTION__);
+    fprintf_error(stderr, "AST: %s\n", Z3_ast_to_string(_ctx, to_prove));
+    return false;
+  }
+  return is_valid;
+}
+
 static bool z3prove(Z3_ast f)
 {
   bool is_valid = false;
@@ -396,6 +525,10 @@ static bool z3prove(Z3_ast f)
     fprintf_error(stderr, "%s:%d %s: Unable to prove constraints valid (see above).\n",
         __FILE__, __LINE__, __FUNCTION__);
     fprintf_error(stderr, "AST: %s\n", Z3_ast_to_string(_ctx, to_prove));
+    fprintf_info(stderr, "Trying iterative mode\n");
+    if (!(is_valid = z3prove_iterative(f))) {
+      fprintf_error(stderr, "Iterative mode failed\n");
+    }
     return false;
   }
 
@@ -434,7 +567,8 @@ bool pabble_check_indices(st_tree *tree)
         push_count++;
         break;
       case ST_CONST_INF:
-        assert(0);
+        scope_push_inf(tree->info->consts[c]->name, tree->info->consts[c]->inf.lbound);
+        push_count++;
     }
   }
 
