@@ -1,0 +1,24 @@
+language: cpp
+compiler:
+    - clang
+before_install:
+    - openssl aes-256-cbc -K $encrypted_aaada354a5a4_key -iv $encrypted_aaada354a5a4_iv in config/travisci_rsa.enc -out config/travisci_rsa -d
+    - chmod 0600 config/travisci_rsa
+    - cp config/travisci_rsa ~/.ssh/id_rsa
+addons:
+  apt:
+    source:
+    - debian-sid
+    packages:
+    - doxygen
+    - graphviz
+before_script:
+- cd build
+- cmake ..
+script: make && make test
+after_success:
+    - ../config/publish-doxygen
+notifications:
+  slack:
+    secure: IAVy8aMyGT14Mb3jSU9/IH1W0vqmhAGSHgsMpAh/dxyYgkDPZuI/Q5eObe4PdD9eiVk8HBEjJBgd+anLDwWxwI71rCiDa0Grh7EV5+DgVbxqvFZwicYFzhR48LG14KFM95KAxt/ht/x9GBYpiY91hycv7srZHFBPYobPlxaZJ4Q=
+sudo: false
