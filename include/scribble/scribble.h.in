@@ -1,0 +1,24 @@
+/**
+ * \mainpage libscribble: Library for Scribble protocol description language.
+ *
+ * This library contains routines and data structures to parse and validate
+ * Scribble and Pabble protocols.
+ *
+ * Developed for Imperial College London, see http://mrg.doc.ic.ac.uk/ and
+ * http://scribble.org/ for details about Scribble.
+ *
+ * \file scribble/scribble.h
+ * \brief Top-level header file for Scribble.
+ */
+#ifndef SCRIBBLE__SCRIBBLE__H__
+#define SCRIBBLE__SCRIBBLE__H__
+
+#define scribble_VERSION_MAJOR @libscribble_VERSION_MAJOR@
+#define scribble_VERSION_MINOR @libscribble_VERSION_PATCH@
+#define scribble_VERSION_PATCH @libscribble_VERSION_PATCH@
+
+#include "scribble/lexer.h"
+#include "scribble/parser.h"
+#include "scribble/parser_helper.h"
+
+#endif//SCRIBBLE__SCRIBBLE__H__
